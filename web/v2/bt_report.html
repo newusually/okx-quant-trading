@@ -153,7 +153,7 @@ function render(){                                                   // 全页�
     '<span class="pill">窗口 '+dt(d.ps).slice(5,16)+' ~ '+dt(d.pe).slice(5,16)+'</span>'+
     '<span class="pill">'+d.traders+' 人</span><span class="pill">'+d.contracts+' 合约</span>'+
     '<span class="pill num">'+d.trades+' 笔</span></div>'+
-    '<div class="muted" style="margin-top:6px">硬规则: 10x 杠杆 · 禁死扛(人人止损+最长3天) · 网格跌档0.5%加仓(30分冷却+每小时≤6) · 第3次加仓直接平仓 · 手续费0.05%/边 · 1000U 起步</div>';
+    '<div class="muted" style="margin-top:6px">自由发挥版: 杠杆 3~20x 自选 · 可不止损可死扛 · 自创加仓哲学(逆势跌档/顺势金字塔) · 每场 16 种原型洗牌(动能·反作用力·熵·引力·量子隧穿·热力学·牛顿力·玄学卦象 + 8 经典) · 手续费0.05%/边 · 1000U 起步</div>';
   /* -- 双王 -- */
   var bestL=null,bestS=null; rows.forEach(function(r){               // 找多王/空王
     if(r.dr===1&&(!bestL||r.fin>bestL.fin)) bestL=r;
@@ -224,7 +224,7 @@ function render(){                                                   // 全页�
     '<p>📌 <b>方向总账</b>: 全员做多合计 <b class="num '+cls(lp)+'">'+fmt(lp,1)+'U</b>, 做空合计 <b class="num '+cls(sp2)+'">'+fmt(sp2,1)+'U</b> — 本月风向 '+
     (lp>sp2?'偏多, 顺势做多的人吃肉':'偏空, 逆势做空的人吃肉')+'。</p>'+
     '<p>📌 <b>性格观察</b>: 平均成绩最佳性格「'+esc(bestT.k)+'」('+fmt(bestT.m)+'%), 最拖后腿「'+esc(worstT.k)+'」('+fmt(worstT.m)+'%)。</p>'+
-    '<p>📌 <b>可借鉴</b>: 平均收益第一的「'+esc(arr[0].k)+'」值得纳入实盘观察池; 垫底的「'+esc(arr[arr.length-1].k)+'」建议远离。前十共同点: 有止损、仓位有上限、绝不第三次加仓。</p></div>';
+    '<p>📌 <b>可借鉴</b>: 平均收益第一的「'+esc(arr[0].k)+'」值得纳入实盘观察池; 垫底的「'+esc(arr[arr.length-1].k)+'」建议远离。前十共同点因人而异——看看「方法」列里谁的独门公式最对你的胃口。</p></div>';
   document.getElementById("sum").innerHTML=sh;
   /* -- 全员榜 -- */
   var ah='<table><tr><th>#</th><th>名字</th><th>方法</th><th>方向</th><th>性格</th><th>仓位</th><th>止盈/止损</th><th>期末</th><th>收益</th><th>回撤</th><th>笔数</th><th>胜率</th><th>强平</th><th>手续费</th></tr>';

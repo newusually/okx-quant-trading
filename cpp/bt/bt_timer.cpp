@@ -4,8 +4,10 @@
  * 职责:
  *   1) 回填全市场合约 3m/5m/15m K线缺口 (OKX history-candles, 限额分批)
  *   2) 调用本地 llama-cli(qwen2.5-0.5b) 生成 100 个随机交易人格(名字+性格)
- *   3) 全市场合约 × 最近一个月 × 100 交易员模拟(硬规则: 10x/禁死扛/
- *      网格跌档0.5%加仓+30分冷却+每小时≤6/第3次加仓直接平仓)
+ *   3) 全市场合约 × 最近一个月 × 100 交易员自由发挥模拟(0929 用户拍板: 无硬规则):
+ *      每人随机杠杆3~20x / 止盈止损自选(可不止损) / 加仓风格自创(跌档或盈利金字塔) /
+ *      每场洗牌 16 种原型——8 经典 + 8 自创物理/玄学指标(动能·反作用力·熵·引力·
+ *      量子隧穿·热力学温度·牛顿力·易经卦象), 阈值每场随机 → 天马行空不重样
  *   4) 报告(全员汇总+前十详细含评语/获奖感言)写入 bt_reports 表, 保留7天
  *
  * 运行方式: 计划任务 finally_bttimer 开机自启, 常驻循环, 每小时整点+5分触发
@@ -26,24 +28,20 @@ static const char* LAMA_MODEL= "E:\\finally-main\\ai\\llama\\qwen2.5-0.5b-instru
 static const char* LOG_PATH  = "E:\\datas\\log\\bttimer.txt";                          // 本组件日志文件
 static const int   STEPS     = 2880;          // 回测窗口步数: 30天 × 96根/天 (15m)
 static const long long STEP_MS = 900000LL;    // 每步毫秒数(15分钟)
-static const int   LEV       = 10;            // 硬性杠杆: 全员 10X
 static const double FEE      = 0.0005;        // 单边手续费 0.05%(吃单)
-static const double LIQ_MOVE = 0.092;         // 强平线: 距均价逆向 9.2% (10x 留缓冲)
-static const double ADD_DIP  = 0.005;         // 网格跌档: 跌破上次加仓价 0.5% 才允许再加
-static const int   ADD_CD    = 2;             // 加仓冷却: 2 根 15m = 30 分钟
-static const int   ADD_HOUR  = 6;             // 每小时(4根)加仓次数上限
-static const int   ADD_MAX   = 2;             // 最多加仓 2 次; 第 3 次加仓请求 → 直接平仓
-static const int   HOLD_MAX  = 288;           // 禁死扛: 最长持仓 288 根 = 3 天, 到时强平
 static const int   WARMUP    = 210;           // 指标预热: 前 210 根(EMA99 需要)不出信号
 static const int   SLOTS     = 3;             // 每人最多同时持有 3 个仓位(跨合约)
 static const int   REQ_BUDGET= 500;           // 每轮 OKX 请求预算(防限频, 3m/5m 用轮转补齐)
 static const int   KEEP_DAYS = 7;             // 报告保留天数(过期清理)
 
-// ---------------- 交易原型 (8 种方法 × 多空) ----------------
-enum { A_BOLL=0, A_TREND3=1, A_MOM=2, A_RSI=3, A_DIP=4, A_BRK=5, A_ADAPT=6, A_RANGE=7, A_N=8 };
-static const char* ARCH_NAME[A_N] = {"布林回归","三线排列","动量追单","RSI极值","急跌接针","突破追高","变色龙","箱体高抛"};
+// ---------------- 交易原型 (8 经典 + 8 自创物理/玄学指标 × 多空) ----------------
+enum { A_BOLL=0, A_TREND3=1, A_MOM=2, A_RSI=3, A_DIP=4, A_BRK=5, A_ADAPT=6, A_RANGE=7,
+       A_KE=8, A_RX=9, A_EN=10, A_GR=11, A_QT=12, A_TT=13, A_NP=14, A_YX=15, A_N=16 };
+static const char* ARCH_NAME[A_N] = {
+    "布林回归","三线排列","动量追单","RSI极值","急跌接针","突破追高","变色龙","箱体高抛",
+    "动能爆发KE","反作用力F'","熵变有序H","引力回归G","量子隧穿Q","热力温度T","牛顿力F=ma","玄学卦象Y"};
 
-// 5 档风控参数 (每人按档位取): 仓位比例/止盈/止损/最长持有
+// 5 档风控基线 (每人按档位取后再随机漂移, 不再硬规则): 仓位比例/止盈/止损/最长持有
 static const double V_SIZE[5] = {0.05, 0.10, 0.15, 0.20, 0.25};
 static const double V_TP[5]   = {0.04, 0.03, 0.02, 0.05, 0.06};
 static const double V_SL[5]   = {0.02, 0.015, 0.01, 0.025, 0.03};
@@ -57,15 +55,29 @@ struct PC {                                   // 单合约数据(回测窗口内
     std::string inst;                         // 合约名, 如 ETH-USDT-SWAP
     std::vector<double> o,h,l,c;              // 开高低收(STEPS 对齐, 无数据处填 0)
     std::vector<double> e7,e25,e99,bu,bl,rsi,roc;  // 指标: EMA7/25/99, 布林上下轨, RSI14, ROC4
+    // ---- 自创物理/玄学指标层(0929 天马行空版, 每场阈值随机) ----
+    std::vector<double> atr, vr;              // ATR14 / 量比(vol ÷ 24根均量)
+    std::vector<double> fke;                  // 动能 KE = ½mv² ≈ 0.5×量比×(|Δc|/ATR)²
+    std::vector<double> fac;                  // 加速度 a = ROC - ROC₋₁(二阶差分)
+    std::vector<double> fen;                  // 熵 H = 8根收益滚动标准差(无序度)
+    std::vector<double> fgr;                  // 引力场 G = (c-EMA99)/ATR(偏离引力井的距离)
+    std::vector<double> fqt;                  // 隧穿位 Q = (c-布林下轨)/(上轨-下轨)(能级 0~1)
+    std::vector<double> ftt;                  // 热力学温度 T = ATR% ÷ 其24根均值(市场冷热)
+    std::vector<double> fnp;                  // 牛顿力 F = ma = 量比×加速度
+    std::vector<double> fyx;                  // 卦象 Y = (step×合约序号) 哈希值(玄学随机门)
     int last = -1;                            // 最后一个有效步下标(-1 = 无数据)
 };
 struct Ev {                                   // 入场事件(已按 step 排序)
     int step, ci, side;                       // 步号 / 合约下标 / 方向 1多-1空
 };
 struct Spec {                                 // 交易员人设
-    std::string name, temper, archN;          // 名字 / 性格 / 方法名
-    int arch, dir, vi;                        // 原型 / 方向(1多-1空, 0=自适应双向) / 参数档
-    double size, tp, sl; int hold;            // 仓位比例 / 止盈 / 止损 / 最长持有
+    std::string name, temper, archN;          // 名字 / 性格 / 方法名(自创公式带参数戳)
+    int arch, dir;                            // 原型 / 方向(1多-1空, 0=自适应双向)
+    double size, tp, sl; int hold;            // 仓位比例 / 止盈 / 止损(0=不止损, 自由发挥) / 最长持有
+    int lev;                                  // 自选杠杆 3~20x(0929: 不再硬性 10x)
+    double addDip;                            // 自创加仓触发幅度(0.3%~3%, 金字塔型为盈利幅度)
+    int addCd, addCap;                        // 自定加仓冷却(步) / 加仓次数上限(0=永不加仓)
+    bool pyramid;                             // false=逆势跌档加仓 / true=顺势盈利金字塔加码
 };
 struct Pos {                                  // 持仓
     int ci, side, openStep, adds, lastAddStep; // 合约/方向/开仓步/已加仓次数/上次加仓步
@@ -82,6 +94,7 @@ struct Res {                                  // 单人模拟结果
 };
 
 static std::mt19937 g_rng;                    // 全局随机源(每场按时间播种)
+static std::string g_thrNote;                 // 本场自创指标参数戳(build_events 生成, 报告可见)
 
 // ---------------- 工具 ----------------
 static long long now_ms() { return (long long)time(nullptr) * 1000LL; }   // 当前毫秒
@@ -360,6 +373,41 @@ static void load_market(std::vector<PC>& mkt) {   // 读全市场 15m 窗口数�
             p.rsi[i] = al < 1e-12 ? 100 : 100 - 100 / (1 + ag / al);
             p.roc[i] = c[i-4] > 0 ? c[i] / c[i-4] - 1 : 0;        // 4 根动量
         }
+        // ---- 自创物理/玄学指标层(0929 天马行空版) ----
+        p.atr.assign(STEPS,0); p.vr.assign(STEPS,1);
+        p.fke.assign(STEPS,0); p.fac.assign(STEPS,0); p.fen.assign(STEPS,0);
+        p.fgr.assign(STEPS,0); p.fqt.assign(STEPS,0); p.ftt.assign(STEPS,1);
+        p.fnp.assign(STEPS,0); p.fyx.assign(STEPS,0);
+        double atrE = 0;                       // ATR 的 24 根指数均值(温度基准)
+        unsigned hsh = (unsigned)(std::hash<std::string>{}(p.inst) & 0xFFFF);   // 玄学种子(合约指纹)
+        for (int i = 1; i < STEPS; i++) {
+            if (c[i] <= 0) continue;
+            double tr = p.h[i] - p.l[i];       // 真实波幅(简化=振幅)
+            if (i >= 1 && c[i-1] > 0) tr = std::max(tr, fabs(p.h[i]-c[i-1]));
+            if (i >= 1 && c[i-1] > 0) tr = std::max(tr, fabs(p.l[i]-c[i-1]));
+            p.atr[i] = i == 1 ? tr : p.atr[i-1] * 13 / 14 + tr / 14;    // Wilder ATR14
+            if (p.atr[i] <= 0) p.atr[i] = c[i] * 0.001;                 // 防零
+            atrE = i == 1 ? p.atr[i] : atrE * 23 / 24 + p.atr[i] / 24;  // 温度基准(EMA24)
+            p.ftt[i] = atrE > 0 ? (p.atr[i] / c[i]) / (atrE / c[i]) : 1;   // 热力学温度 T
+            double dv = 0, vrS = 0;            // 量比: vol/24根均量(用 o 数组存不了 vol → 用振幅代理波动能量)
+            // 注: 加载层未带成交量, 量比改用「振幅比」(T 的倒数扰动) —— m=质量用 T 代理
+            dv = p.atr[i] / (atrE > 0 ? atrE : 1);    // 能量代理
+            vrS = dv;                          // m 代理
+            double v = (c[i-4] > 0 ? fabs(c[i]/c[i-4]-1) : 0) / (p.atr[i]/c[i] * 4 + 1e-12);   // 归一速度
+            p.fke[i] = 0.5 * vrS * v * v;      // 动能 KE = ½mv²
+            p.fac[i] = (i >= 8 ? p.roc[i] - p.roc[i-4] : 0);            // 加速度(4 根 ROC 差分)
+            p.fnp[i] = vrS * p.fac[i] * 100;   // 牛顿力 F = ma(放大到可读量级)
+            double s8 = 0, s8v = 0;            // 熵: 8 根对数收益标准差
+            int cnt8 = 0;
+            for (int j = std::max(1, i-7); j <= i; j++) if (c[j] > 0 && c[j-1] > 0) {
+                double rj = log(c[j] / c[j-1]); s8 += rj; s8v += rj*rj; cnt8++;
+            }
+            if (cnt8 >= 6) { double m8 = s8/cnt8; p.fen[i] = sqrt(std::max(0.0, s8v/cnt8 - m8*m8)); }
+            p.fgr[i] = p.e99[i] > 0 ? (c[i] - p.e99[i]) / p.atr[i] : 0;    // 引力场: 距引力井的 ATR 数
+            double bw = p.bu[i] - p.bl[i];     // 隧穿位: 布林能级坐标
+            p.fqt[i] = bw > 1e-12 ? (c[i] - p.bl[i]) / bw : 0.5;           // 0=下能级 1=上能级
+            p.fyx[i] = (double)((hsh + (unsigned)i * 2654435761u) >> 23 & 0xFF) / 255.0;   // 卦象: 黄金比例哈希
+        }
     }
     logline("数据加载: " + std::to_string(mkt.size()) + " 合约 × " + std::to_string(STEPS) + " 根");
 }
@@ -376,7 +424,24 @@ static double ll(const PC& p, int i, int n) {       // 前 n 根最低价
 }
 
 // ---------------- 事件预计算: 每种原型×方向在每合约的入场点 ----------------
+// 8 种自创原型(动能/反作用力/熵/引力/隧穿/温度/牛顿力/玄学)的阈值每场由 g_rng 洗牌 → 每场不同指标参数
 static void build_events(const std::vector<PC>& mkt, std::vector<Ev> ev[A_N][2]) {
+    auto rnd = [](double a, double b) {        // 均匀随机 [a,b]
+        std::uniform_real_distribution<double> d(a, b); return d(g_rng);
+    };
+    double thKE = rnd(1.2, 2.6);               // 动能爆发阈值(KE)
+    double thRX = rnd(0.01, 0.03);             // 反作用力阈值(加速度)
+    double thEN = rnd(0.004, 0.010);           // 熵减阈值(8根收益标准差)
+    double thGR = rnd(1.8, 3.2);               // 引力回归阈值(ATR 距离)
+    double thQT = rnd(0.96, 1.10);             // 隧穿上能级(布林坐标)
+    double thQTl = 1.0 - thQT + 0.06;          // 隧穿下能级(对称)
+    double thTTh = rnd(1.9, 2.6);              // 过热温度阈值
+    double thTTl = rnd(0.45, 0.75);            // 低温点火阈值
+    double thNP = rnd(0.8, 2.2);               // 牛顿力阈值
+    double thYX = rnd(0.85, 0.97);             // 玄学吉门概率位
+    char thrNote[160];                         // 本场指标参数戳(写入方法名, 报告可见)
+    snprintf(thrNote, sizeof(thrNote), "本场阈值 KE>%.1f G|>%.1f Q>%.2f T>%.1f F|>%.1f", thKE, thGR, thQT, thTTh, thNP);
+    g_thrNote = thrNote;                       // 存全局供人设名追加
     for (size_t ci = 0; ci < mkt.size(); ci++) {     // 逐合约扫
         const PC& p = mkt[ci];
         for (int i = WARMUP; i <= p.last; i++) {     // 预热后逐根判条件
@@ -397,6 +462,23 @@ static void build_events(const std::vector<PC>& mkt, std::vector<Ev> ev[A_N][2])
             cond[A_BRK][1] = p.c[i] < ll(p, i, 20);                  // 破 20 根新低
             cond[A_RANGE][0] = p.bl[i] > 0 && p.c[i] < p.bl[i] && p.rsi[i] >= 28 && p.rsi[i] <= 45;  // 箱底
             cond[A_RANGE][1] = p.bu[i] > 0 && p.c[i] > p.bu[i] && p.rsi[i] >= 55 && p.rsi[i] <= 72;  // 箱顶
+            // ---- 自创物理/玄学原型(每场阈值不同) ----
+            cond[A_KE][0] = p.fke[i] > thKE && p.roc[i] > 0;    // 动能爆发且方向向上 → 多
+            cond[A_KE][1] = p.fke[i] > thKE && p.roc[i] < 0;    // 动能爆发且方向向下 → 空
+            cond[A_RX][0] = p.roc[i] < -thRX && p.fac[i] > 0 && p.c[i] < p.e25[i];   // 下跌中反作用力转正(反弹应力) → 多
+            cond[A_RX][1] = p.roc[i] >  thRX && p.fac[i] < 0 && p.c[i] > p.e25[i];   // 上涨中反作用力转负(回落应力) → 空
+            cond[A_EN][0] = p.fen[i] < thEN && p.roc[i] > 0;    // 熵减(秩序涌现)且方向向上 → 多
+            cond[A_EN][1] = p.fen[i] < thEN && p.roc[i] < 0;    // 熵减且方向向下 → 空
+            cond[A_GR][0] = p.fgr[i] < -thGR && p.c[i] > 0;     // 深入引力井下 → 被引力拉回 → 多
+            cond[A_GR][1] = p.fgr[i] >  thGR && p.c[i] > 0;     // 远离引力井上空 → 被引力拉回 → 空
+            cond[A_QT][0] = p.fqt[i] > thQT && p.c[i] > p.e25[i];   // 隧穿上能级(势垒突破) → 多
+            cond[A_QT][1] = p.fqt[i] < thQTl && p.c[i] < p.e25[i];  // 跌穿下能级 → 空
+            cond[A_TT][0] = p.ftt[i] < thTTl && p.roc[i] > 0;   // 低温点火(冷缩后升温) → 多
+            cond[A_TT][1] = p.ftt[i] > thTTh;                   // 过热必冷却 → 空
+            cond[A_NP][0] = p.fnp[i] >  thNP && p.c[i] > p.e25[i];  // 牛顿力正向(质量×加速度) → 多
+            cond[A_NP][1] = p.fnp[i] < -thNP && p.c[i] < p.e25[i];  // 牛顿力负向 → 空
+            cond[A_YX][0] = p.fyx[i] > thYX && p.e25[i] > p.e25[i-8];   // 卦象吉门+中期向上 → 多
+            cond[A_YX][1] = p.fyx[i] < (1.0 - thYX) && p.e25[i] < p.e25[i-8];   // 凶门+中期向下 → 空
             for (int a = 0; a < A_N; a++) {          // 收录进事件表
                 if (a == A_ADAPT) continue;          // 变色龙单独处理
                 if (cond[a][0]) ev[a][0].push_back({i, (int)ci, 1});   // 做多事件
@@ -444,6 +526,12 @@ static const int EXP_SLOTS = 28;                          // 每场上场名人�
 
 static std::vector<Spec> make_specs(const std::vector<std::string>& llmNames, const std::vector<int>& llmTemps) {
     std::vector<Spec> out; out.reserve(100);
+    auto rnd = [](double a, double b) {        // 均匀随机 [a,b]
+        std::uniform_real_distribution<double> d(a, b); return d(g_rng);
+    };
+    auto rndi = [](int a, int b) {             // 均匀随机整数 [a,b]
+        std::uniform_int_distribution<int> d(a, b); return d(g_rng);
+    };
     // ---- 名人专家席位: 每场洗牌抽 EXP_SLOTS 位(不同场次名人阵容不同) ----
     std::vector<int> expIdx(EXP_N);            // 名人下标池
     for (int i = 0; i < EXP_N; i++) expIdx[i] = i;
@@ -451,28 +539,50 @@ static std::vector<Spec> make_specs(const std::vector<std::string>& llmNames, co
     std::vector<int> expertSeats(100, -1);     // 座位→名人下标映射(默认 -1 = 普通席位)
     for (int i = 0; i < EXP_SLOTS; i++) expertSeats[i] = expIdx[i % EXP_N];   // 前 28 席给名人(可重复轮补)
     std::shuffle(expertSeats.begin(), expertSeats.end(), g_rng); // 名人座位也洗牌(位置不固定)
-    std::vector<int> varIdx(100);              // 参数档洗牌(每场不同配比)
-    for (int i = 0; i < 100; i++) varIdx[i] = i % 5;
-    std::shuffle(varIdx.begin(), varIdx.end(), g_rng);
     std::vector<int> dirMap(100);              // 多空分配洗牌(多空各半)
     for (int i = 0; i < 100; i++) dirMap[i] = (i % 2) ? -1 : 1;
     std::shuffle(dirMap.begin(), dirMap.end(), g_rng);
+    std::vector<int> archPool(100);            // 16 种原型随机分配(物理/玄学占一半席位)
+    for (int i = 0; i < 100; i++) archPool[i] = i % A_N;
+    std::shuffle(archPool.begin(), archPool.end(), g_rng);
     char nb[16];
     for (int k = 0; k < 100; k++) {            // 逐人生成
-        Spec s; s.arch = k % A_N;              // 8 种原型轮流覆盖
+        Spec s;                                // 自由发挥人设
+        s.arch = archPool[k];                  // 随机原型(16 选 1, 每场洗牌)
         s.dir = dirMap[k];                     // 洗牌后的多空
-        s.vi = varIdx[k];                      // 洗牌后的参数档
         if (s.arch == A_ADAPT) s.dir = 0;      // 变色龙 = 双向自适应
-        s.size = V_SIZE[s.vi]; s.tp = V_TP[s.vi]; s.sl = V_SL[s.vi]; s.hold = V_HOLD[s.vi];
+        s.size = rnd(0.04, 0.30);              // 仓位 4%~30% 自选
+        s.tp = rnd(0.015, 0.08);               // 止盈 1.5%~8% 自选
+        s.sl = rnd(0, 1) < 0.25 ? 0.0 : rnd(0.008, 0.04);   // 25% 的胆大派不止损, 其余 0.8%~4%
+        s.hold = rndi(96, 1600);               // 最长持有 1 天~16 天(允许死扛, 天赋自由)
+        s.lev = rndi(3, 20);                   // 自选杠杆 3~20x
+        s.addDip = rnd(0.003, 0.03);           // 自创加仓触发幅度 0.3%~3%
+        s.addCd = rndi(1, 12);                 // 自定冷却 15 分钟~3 小时
+        s.addCap = rnd(0, 1) < 0.2 ? 0 : rndi(1, 6);        // 20% 永不加仓, 其余 1~6 次
+        s.pyramid = rnd(0, 1) < 0.35;          // 35% 顺势金字塔派(盈利加码), 其余逆势跌档派
         int tp;                                // 性格: 优先 LLM, 缺失按序取
         if (k < (int)llmTemps.size()) tp = llmTemps[k]; else tp = (k * 7 + 3) % 8;
         s.temper = TEMPER_NAME[tp];
         s.name = k < (int)llmNames.size() ? llmNames[k] : (snprintf(nb, sizeof(nb), "员%02d", k+1), std::string(nb));
-        s.archN = ARCH_NAME[s.arch];
+        // 方法名 = 原型 + 自创参数戳(公式参数随机 → 每场每个"新指标"都不重样)
+        char ab[220];
+        if (s.arch == A_KE)  snprintf(ab, sizeof(ab), "动能爆发KE·½mv²·杠杆%dx", s.lev);
+        else if (s.arch == A_RX)  snprintf(ab, sizeof(ab), "反作用力F'·回撤%.1f%%·杠杆%dx", s.addDip*100, s.lev);
+        else if (s.arch == A_EN)  snprintf(ab, sizeof(ab), "熵变有序H·秩序门·杠杆%dx", s.lev);
+        else if (s.arch == A_GR)  snprintf(ab, sizeof(ab), "引力回归G·深井%.1fATR·杠杆%dx", s.addDip*33, s.lev);
+        else if (s.arch == A_QT)  snprintf(ab, sizeof(ab), "量子隧穿Q·能级跃迁·杠杆%dx", s.lev);
+        else if (s.arch == A_TT)  snprintf(ab, sizeof(ab), "热力学T·冷热循环·杠杆%dx", s.lev);
+        else if (s.arch == A_NP)  snprintf(ab, sizeof(ab), "牛顿力F=ma·质量×加速度·杠杆%dx", s.lev);
+        else if (s.arch == A_YX)  snprintf(ab, sizeof(ab), "玄学卦象Y·吉位%.0f%%·杠杆%dx", 90.0, s.lev);
+        else snprintf(ab, sizeof(ab), "%s·杠杆%dx·%s", ARCH_NAME[s.arch], s.lev, s.pyramid ? "金字塔" : "跌档");
+        s.archN = ab;
         if (expertSeats[k] >= 0) {             // 名人专家席位: 覆盖人设为大师配置
             const Exp& e = EXP[expertSeats[k]];
-            s.name = e.name; s.arch = e.arch; s.dir = e.dir; s.vi = e.vi;
-            s.size = V_SIZE[e.vi]; s.tp = V_TP[e.vi]; s.sl = V_SL[e.vi]; s.hold = V_HOLD[e.vi];
+            s.name = e.name; s.arch = e.arch; s.dir = e.dir;
+            s.size = rnd(0.05, 0.25); s.tp = rnd(0.02, 0.06); s.sl = rnd(0.008, 0.03);
+            s.hold = rndi(192, 960); s.lev = rndi(5, 15);
+            s.addDip = rnd(0.005, 0.02); s.addCd = rndi(1, 8); s.addCap = rndi(1, 4);
+            s.pyramid = e.arch == A_TREND3;    // 趋势派顺势加码, 其余逆势补
             s.temper = TEMPER_NAME[e.temper]; tp = e.temper;
             s.archN = std::string(ARCH_NAME[e.arch]) + "·" + e.tip;   // 方法名带名人理念(报告可见)
         }
@@ -530,38 +640,38 @@ static Res sim_one(const Spec& s, const std::vector<PC>& mkt, const std::vector<
             const PC& cp = mkt[p.ci];
             if (step > cp.last || cp.c[step] <= 0) continue;     // 该步无数据跳过
             double hi = cp.h[step], lo = cp.l[step], px = cp.c[step];
-            // 加仓判定(先于出场: 跌档即触发)
-            if (p.adds <= ADD_MAX && p.side * (lo - p.lastAddPx) < 0 &&    // 逆向创出新低/新高
-                fabs(lo - p.lastAddPx) / p.lastAddPx >= ADD_DIP &&         // 幅度 ≥ 0.5%
-                step - p.lastAddStep >= ADD_CD) {                          // 冷却 30 分钟
-                int hourAdds = 0;                                          // 每小时配额: 数最近 4 步加仓次数(简化: 每步最多1次, 冷却2步 → 自然≤2, 配额必过, 保留逻辑位)
-                if (p.adds < ADD_MAX + 1 && hourAdds < ADD_HOUR) {         // 未超限
-                    if (p.adds == ADD_MAX) {                               // 已经加过 2 次 → 第 3 次请求直接平仓(硬规则)
-                        r.f3++;
-                        double fill = p.side > 0 ? lo : hi;                // 按触发价成交
-                        close_pos(p, step, fill, "三次加仓强平");
-                        continue;
-                    }
-                    double fillPx = p.side > 0 ? lo : hi;                  // 加仓成交价(逆向极值)
-                    double addM = p.margin * 0.5;                          // 加仓保证金 = 原仓 50%
-                    double addQ = addM * LEV / fillPx;                     // 加仓数量
-                    double feeIn = addM * LEV * FEE;                       // 加仓手续费
+            // 加仓判定(自由发挥版, 0929): 每人自带加仓哲学 ——
+            //   逆势跌档派: 逆向偏离上次加仓价 ≥ addDip 且冷却满 → 补仓摊平
+            //   顺势金字塔派: 顺向偏离上次加仓价 ≥ addDip 且冷却满 → 盈利加码(让利润奔跑)
+            //   addCap=0 永不加仓; 加到上限后不再加(不强制平仓, 自由发挥)
+            if (p.adds < s.addCap && step - p.lastAddStep >= s.addCd) {
+                double dev = p.side * (lo - p.lastAddPx) / p.lastAddPx;   // 逆向偏离度(多仓用低点)
+                double devP = p.side * (hi - p.lastAddPx) / p.lastAddPx;  // 顺向偏离度(多仓用高点)
+                bool hit = s.pyramid ? (devP >= s.addDip) : (dev >= s.addDip);   // 各派触发
+                if (hit) {
+                    double fillPx = s.pyramid ? hi : lo;                   // 成交价(顺向/逆向极值)
+                    double addM = p.margin * (0.3 + 0.2 * (p.adds % 2));   // 加仓保证金 30%/50% 交替(自创节奏)
+                    double addQ = addM * s.lev / fillPx;                   // 加仓数量
+                    double feeIn = addM * s.lev * FEE;                     // 加仓手续费
                     eq -= addM + feeIn; r.fee += feeIn;                    // 扣款
                     p.avg = (p.avg * p.qty + fillPx * addQ) / (p.qty + addQ);   // 重算均价
                     p.qty += addQ; p.margin += addM;                       // 并仓
                     p.lastAddPx = fillPx; p.lastAddStep = step; p.adds++; r.adds++;
-                    addTrade(t0 + (long long)step * STEP_MS, p.ci, p.side > 0 ? "网格跌档加仓·多" : "网格跌档加仓·空", fillPx, 0, 0);
+                    addTrade(t0 + (long long)step * STEP_MS, p.ci,
+                             s.pyramid ? (p.side > 0 ? "金字塔加码·多" : "金字塔加码·空")
+                                       : (p.side > 0 ? "跌档补仓·多" : "涨档补仓·空"), fillPx, 0, 0);
                 }
             }
-            // 出场判定(保守顺序: 先查止损/强平用低点, 再查止盈用高点)
-            double slPx = p.avg * (1 - p.side * s.sl);                     // 止损价(随均价)
-            double liqPx = p.avg * (1 - p.side * LIQ_MOVE);                // 强平价
+            // 出场判定(自由发挥): 强平线随自选杠杆(1/lev 留 5% 缓冲); sl=0 的胆大派无止损; hold 到期才走
+            double liqMove = 1.0 / s.lev * 0.95;                           // 强平距离 = 1/杠杆×95%
+            double slPx = p.avg * (1 - p.side * s.sl);                     // 止损价(随均价; sl=0 时与均价重合不触发)
+            double liqPx = p.avg * (1 - p.side * liqMove);                 // 强平价
             if ((p.side > 0 && lo <= liqPx) || (p.side < 0 && hi >= liqPx)) {   // 强平(最优先)
                 r.liqs++;
                 close_pos(p, step, liqPx, "保证金强平");
                 continue;
             }
-            if ((p.side > 0 && lo <= slPx) || (p.side < 0 && hi >= slPx)) {    // 止损(禁死扛)
+            if (s.sl > 0 && ((p.side > 0 && lo <= slPx) || (p.side < 0 && hi >= slPx))) {    // 止损(有止损的人才触发)
                 close_pos(p, step, slPx, "止损离场");
                 continue;
             }
@@ -570,7 +680,7 @@ static Res sim_one(const Spec& s, const std::vector<PC>& mkt, const std::vector<
                 close_pos(p, step, tpPx, "止盈落袋");
                 continue;
             }
-            if (step - p.openStep >= s.hold || step - p.openStep >= HOLD_MAX) { // 到时平仓(禁死扛兜底)
+            if (step - p.openStep >= s.hold) {                             // 自选最长持有到期
                 close_pos(p, step, px, "到期平仓");
                 continue;
             }
@@ -598,8 +708,8 @@ static Res sim_one(const Spec& s, const std::vector<PC>& mkt, const std::vector<
                 double mg = eq * s.size * mult;               // 保证金
                 if (mg > eq * 0.6) mg = eq * 0.6;             // 单仓不超权益 60%
                 if (mg < 5) continue;                         // 太小不开
-                double qty = mg * LEV / px;                   // 数量
-                double feeIn = mg * LEV * FEE;                // 开仓手续费
+                double qty = mg * s.lev / px;                 // 数量(自选杠杆)
+                double feeIn = mg * s.lev * FEE;              // 开仓手续费
                 eq -= mg + feeIn; r.fee += feeIn;
                 Pos np; np.ci = e.ci; np.side = e.side; np.openStep = step; np.adds = 0;
                 np.lastAddStep = step; np.margin = mg; np.qty = qty; np.avg = px; np.lastAddPx = px;
@@ -647,7 +757,7 @@ static void write_report(const std::vector<Spec>& sp, std::vector<Res>& res, int
               ",\"fin\":" + jnum(r.eq) + ",\"ret\":" + jnum((r.eq/1000.0-1)*100) +
               ",\"dd\":" + jnum(r.dd*100) + ",\"ntr\":" + std::to_string(r.ntr) +
               ",\"win\":" + jnum(r.ntr ? 100.0*r.win/r.ntr : 0) +
-              ",\"liq\":" + std::to_string(r.liqs) + ",\"f3\":" + std::to_string(r.f3) +
+              ",\"liq\":" + std::to_string(r.liqs) + ",\"f3\":" + std::to_string(r.adds) +
               ",\"fee\":" + jnum(r.fee) + ",\"lp\":" + jnum(r.lp) + ",\"sp\":" + jnum(r.sp) + ",\"cv\":[";
         for (size_t j = 0; j < r.curve.size(); j++) { if (j) sj += ","; sj += jnum(r.curve[j]); }
         sj += "]}";
@@ -663,9 +773,14 @@ static void write_report(const std::vector<Spec>& sp, std::vector<Res>& res, int
         int i = topIdx[k]; const Spec& s = sp[i]; const Res& r = res[i];
         if (k) tj += ",";
         std::string cm = cmt[k].empty() ? std::string(CMT_TPL[s.arch % 8]) : cmt[k];     // 评语(LLM 兜底模板)
+        char slb[24]; snprintf(slb, sizeof(slb), "%.1f%%", s.sl * 100);   // 止损百分数串
         std::string sp2 = spc[k].empty() ?                                               // 感言(LLM 兜底模板)
             ("这场我靠「" + s.archN + (s.dir >= 0 ? "·顺多" : "·顺空") + "」打出 " +
-             std::to_string((int)((r.eq/1000.0-1)*100)) + "%，关键在守纪律：止损不犹豫，加仓等跌档，三次加仓必走人。")
+             std::to_string((int)((r.eq/1000.0-1)*100)) + "%。我的独门公式是「" + s.archN +
+             "」——市场给了我 " + std::to_string(r.ntr) + " 次机会，我抓住了 " + std::to_string(r.win) +
+             " 次。风控是我自己设计的：加仓" + std::string(s.pyramid ? "只顺势金字塔" : "只在跌够时") +
+             (s.sl > 0 ? "，止损 " + std::string(slb) : "，我从不设止损") +
+             "，杠杆 " + std::to_string(s.lev) + "x，剩下的交给市场。")
             : spc[k];
         tj += "{\"rk\":" + std::to_string(k+1) + ",\"nm\":\"" + jesc(s.name) + "\",\"ar\":\"" + jesc(s.archN) +
               "\",\"dr\":" + std::to_string(s.dir) + ",\"tp\":\"" + jesc(s.temper) +
