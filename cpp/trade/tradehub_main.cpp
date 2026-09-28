@@ -173,7 +173,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {   // GUI 无窗口入口
     tlog("DB 已连接 trading@127.0.0.1 (libmysql)");      // DB 就绪
 
     eng_log("INFO", "engine",                  // 策略口径横幅落 logs 表(网页可见)
-            "===== C++ 交易中枢启动 | 买入=5m+3m金▲共振·2U·20X·加仓=网格跌档(创新低0.5%)+1U·止盈=tphub接管·永不止损·金额trade_cfg.json热改 =====");
+            "===== C++ 交易中枢启动 | 买入=5m+3m金▲共振+1h振幅>2%过滤·2U·20X·加仓=网格跌档(创新低0.5%)+1U·止盈=tphub接管·永不止损·金额trade_cfg.json热改 =====");
 
     trade_hb("tradehub");                      // 初始化引擎心跳文件
     trade_hb("backfill");                      // 初始化回填心跳文件

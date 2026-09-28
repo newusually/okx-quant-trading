@@ -19,7 +19,7 @@
  *   close_ledger()   平仓台账: 关台账 + 删网格信号 + 事件流水
  *   reconcile()      对账: OKX 已无仓但台账 OPEN → 关闭
  *   gates_ok()       买入前闸门检查(持仓数/每小时买入数/单扫描数)
- *   buy_scan()       买入扫描: 全池 → 5m金▲命中 → 拉3m验金▲ → 双周期共振开仓
+ *   buy_scan()       买入扫描: 全池 → 5m金▲命中 → 拉3m验金▲ → 1h振幅>2%过滤 → 双周期共振开仓
  *   manage_positions() 持仓看板快照(grid_signal) + 跌时3m金▲加仓判定
  *   minute_snap()    每分钟快照: 占用保证金/浮盈 → pnl_history
  *   engine_loop()    主循环: 10 秒对齐节拍
@@ -27,7 +27,9 @@
  * 【数据流】
  *   OKX candles → feed_inst_lite → sigcore 内存库 → sig_store_gold(金▲)
  *   金▲共振 → gates_ok 六重闸门(持仓≤12/时买≤3/单扫≤1/60分冷却/
- *   大盘熔断ETH-BTC 15m×4根跌>1%/只买白名单symbol_pool) → okx_set_leverage_adaptive
+ *   大盘熔断ETH-BTC 15m×4根跌>1%/只买白名单symbol_pool) → 1h振幅>amp1h_pct 过滤
+ *   (fib618 优点吸收: 死水合约入场 24h 止盈率仅 30%, 波动大的 79% → 提纯信号不接刀) →
+ *   okx_set_leverage_adaptive
  *   (返回的实际杠杆参与计算, 不可用 LOCK_LEVER 常量) → okx_market_buy
  *   → position_detail/trade_flow 台账; 加仓: 网格跌档(跌破上次加仓价 add_dip_pct%) → +1U,
  *   30分钟冷却 + 每小时≤6次 (2026-09-29 用户拍板: 回测收益+59%/次数-40%/最差减半)
@@ -90,6 +92,7 @@ static int size_for(const std::string& inst, double usd, double px, int lever) {
 static double g_entryUsd = LOCK_ENTRY_USD;           // 当前买入保证金(USDT, 初始=硬锁 2U)
 static double g_addUsd   = LOCK_ADD_USD;             // 当前加仓保证金(USDT, 初始=硬锁 1U)
 static double g_addDip   = 0.005;                    // 网格跌档阈值(小数, 默认 0.5%: 现价须跌破上次加仓价 0.5% 才允许再加)
+static double g_amp1h    = 2.0;                      // 买入过滤阈值(百分数): 入场时近 1h(12根5m)振幅须大于该值, 过滤死水合约
 static void cfg_reload() {                           // 热加载金额配置(引擎每轮调用)
     static time_t lastChk = 0;                       // 上次实际读文件时间(10s 节流)
     time_t now = time(nullptr);                      // 当前时间
@@ -107,19 +110,22 @@ static void cfg_reload() {                           // 热加载金额配置(�
     double e = j_num(s, "entry_usd");                // 买入金额(j_num 缺键返回 0)
     double a = j_num(s, "add_usd");                  // 加仓金额
     double dp = j_num(s, "add_dip_pct");             // 网格跌档阈值(百分数, 0.5=跌 0.5%)
+    double am = j_num(s, "amp1h_pct");               // 买入过滤: 近 1h 振幅阈值(百分数, 2.0=振幅须>2%)
     if (e < 0.01 || e > 1000.0) e = g_entryUsd;      // 非法值兜底 → 保持现值(防手滑写崩)
     if (a < 0.01 || a > 1000.0) a = g_addUsd;        // 同上
     if (dp < 0.05 || dp > 5.0) dp = g_addDip * 100.0;   // 跌档阈值合法区间 0.05%~5%
+    if (am < 0.1 || am > 20.0) am = g_amp1h;         // 振幅阈值合法区间 0.1%~20%(缺键=0 → 兜底保持现值)
     dp /= 100.0;                                     // 百分数 → 小数
-    if (e != g_entryUsd || a != g_addUsd || dp != g_addDip) {   // 值有变化 → 审计日志
+    if (e != g_entryUsd || a != g_addUsd || dp != g_addDip || am != g_amp1h) {   // 值有变化 → 审计日志
         char cl[200];                                // 日志缓冲
-        snprintf(cl, sizeof(cl), "金额配置热更新: 买入=%.2fU 加仓=%.2fU 跌档=%.2f%% (%s)",
-                 e, a, dp * 100.0, cfg.c_str());     // 变更文案
+        snprintf(cl, sizeof(cl), "金额配置热更新: 买入=%.2fU 加仓=%.2fU 跌档=%.2f%% 1h振幅阈值=%.1f%% (%s)",
+                 e, a, dp * 100.0, am, cfg.c_str()); // 变更文案
         eng_log("INFO", "engine", cl);               // 落 logs 表+文件
     }
     g_entryUsd = e;                                  // 生效: 买入
     g_addUsd = a;                                    // 生效: 加仓
     g_addDip = dp;                                   // 生效: 跌档阈值
+    g_amp1h = am;                                    // 生效: 1h 振幅过滤阈值
 }
 
 // ---------------- 开仓: 下单 + 台账 + 流水 ----------------
@@ -234,7 +240,23 @@ static bool gates_ok(int opened_this_scan) {            // 入参: 本轮扫描�
     return true;                                        // 三闸全过允许开仓
 }
 
-// ---------------- 5m 收盘买入扫描: 全池 → 5m+3m 金▲共振 → 开仓 ----------------
+// ---------------- 1h 振幅: 最近 12 根已收盘 5m 的 (最高-最低)/最低 ----------------
+// fib618 回测优点吸收(2026-09-29 用户拍板): 金▲再准, 死水合约入场 24h 止盈率仅 30%,
+// 波动大的合约 79% → 买入前须近 1h 振幅 > 阈值(trade_cfg.json amp1h_pct 热配置)。
+// 用 DB 已入库的 5m 序列滚动合成 1h 窗口, 不加 OKX 请求、不碰 sigcore(基线零改动)。
+static double amp1h_of(const std::string& inst) {   // 入参: 合约; 出参: 振幅百分数(数据不足返回 -1)
+    std::vector<Bar> rows = kl_read_recent(inst, "5m", 12);   // 最近 12 根已收盘 5m = 1h 滚动窗
+    if ((int)rows.size() < 6) return -1.0;          // 不足 6 根(新上市/无数据) → 保守视为死水
+    double hi = rows[0].h, lo = rows[0].l;          // 窗口最高/最低初值
+    for (auto& b : rows) {                          // 扫全窗口
+        if (b.h > hi) hi = b.h;                     // 更新最高
+        if (b.l < lo) lo = b.l;                     // 更新最低
+    }
+    if (lo <= 0) return -1.0;                       // 价格非法兜底
+    return (hi - lo) / lo * 100.0;                  // 振幅百分数
+}
+
+// ---------------- 5m 收盘买入扫描: 全池 → 5m+3m 金▲共振 → 1h振幅过滤 → 开仓 ----------------
 //   口径(2026-09-28 用户指定): 只用 5m 与 3m 两周期各自的金▲底部动能锚(KE>=该合约底部KE的75分位,
 //   与引擎同源自适应, 不用固定 KE 绝对值 —— 实测 KE 含成交量量纲, 跨合约不可比)。
 //   实测(10合约/24.5天/实盘口径): 5m+3m 共振 +0.190%/胜率57% > 单5m 0.172%/54% > 现状5m+15m六维 0.123%/52%。
@@ -260,14 +282,18 @@ static void buy_scan(const std::vector<std::string>& pool) {   // 入参: 权威
         if (!sig_store_gold(inst, "5m", k5, i5)) continue;   // ① 5m 金▲未命中 → 下一个
         feed_inst_lite(inst, "3m");                     // 仅对 5m 已命中的合约补最新 3m(单合约 1 请求)
         if (!sig_store_gold(inst, "3m", k3, i3)) continue;   // ② 3m 金▲未命中 → 双周期不共振, 放弃
-        std::string remark = "金▲共振命中 5m[KE=" + jnum(k5) + "] 3m[KE=" + jnum(k3) + "]";   // 信号备注(双KE)
+        double amp = amp1h_of(inst);                    // ③ 近 1h 振幅(fib618 优点吸收: 提纯信号不接刀)
+        if (amp < g_amp1h) continue;                    // 死水/波动不足 → 拒绝接刀, 静默跳过(同 5m/3m 未命中)
+        char ab[64];                                    // 振幅证据文案缓冲
+        snprintf(ab, sizeof(ab), " 1h振幅%.2f%%(>%0.1f%%)", amp, g_amp1h);   // 过滤通过的证据入备注
+        std::string remark = "金▲共振命中 5m[KE=" + jnum(k5) + "] 3m[KE=" + jnum(k3) + "]" + ab;   // 信号备注(双KE+振幅)
         char sql[1024];                                 // SQL 缓冲
         snprintf(sql, sizeof(sql),                      // 先写 signal 流水(买入痕迹)
             "INSERT INTO trade_flow (trade_time,inst_id,action,pos_side,remark)"
             " VALUES (NOW(),'%s','signal','long','%s')",
             inst.c_str(), sqlesc(remark).c_str());
         db_ex(sql);                                     // 执行
-        open_position(inst, "5m+3m金▲共振");            // 双周期共振 → 正式开仓
+        open_position(inst, "5m+3m金▲共振·1h振幅达标");   // 双周期共振+振幅过滤通过 → 正式开仓
         opened++;                                       // 本轮开仓计数
     }
 }

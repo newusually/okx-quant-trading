@@ -55,7 +55,7 @@
 //   tradehub_main.cpp  主壳(单实例/日志/心跳/双线程)
 //
 // 交易铁律(与 bootstrap.php 逐字一致, 代码级硬锁):
-//   买入 = 5m+3m 金▲共振 · 2U · 20X cross · 只买 symbol_pool
+//   买入 = 5m+3m 金▲共振 + 近1h振幅>amp1h_pct%(死水过滤, fib618 优点吸收) · 2U · 20X cross · 只买 symbol_pool
 //   加仓 = 网格跌档(现价<上次加仓价×(1-add_dip_pct%), 首次用均价) · +1U · 单合约30分冷却 · 全局每小时≤6
 //   止盈 = tphub.exe 实时接管(本进程不碰)
 //   止损 = 永不止损
