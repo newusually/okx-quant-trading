@@ -1,4 +1,10 @@
 <?php
-// v2 目录默认页: 跳转到新版面板 (mod_dir DirectoryIndex 首候选)
-header("Location: /v2/index.html");
-exit;
+// ============================================================
+//  index.php — v2 目录默认入口 (仅跳转, 零业务逻辑)
+//  职责: 作为 mod_dir DirectoryIndex 首候选, 把 /v2/ 请求
+//        302 跳到静态版新版面板 index.html。
+//        页面本身 0 PHP 计算, 所有数据由前端 AJAX 直连
+//        C++ 组件 apihub.exe (:8090, 经 Apache 反代同源)。
+// ============================================================
+header("Location: /v2/index.html");   // 发送 302 跳转头 → 新版面板页面
+exit;                                  // 立即终止脚本, 不再输出任何内容

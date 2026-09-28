@@ -1,92 +1,101 @@
-
-:root{--red:#e03131;--green:#0ca678;--blue:#2f6fed;--bg:#f4f6fa;--card:#fff;--line:#e0e5ef;--txt:#1f2329}
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);font:15px/1.55 "LiSu","隶书","KaiTi","STKaiti","Microsoft YaHei",serif;color:var(--txt)}
-.wrap{padding:12px 14px 130px;max-width:1560px;margin:0 auto}
-.top{background:linear-gradient(180deg,#fff,#f0f1f5);border-bottom:1px solid var(--line);padding:9px 16px;
- display:flex;gap:12px;align-items:center;flex-wrap:wrap;box-shadow:0 1px 4px rgba(0,0,0,.05)}
-.top b{font-size:20px;font-weight:bold;letter-spacing:1px;
- background:linear-gradient(180deg,#ffe9a8,#f6c445 45%,#c98a1b 55%,#f2b52f);-webkit-background-clip:text;background-clip:text;
- color:transparent;filter:drop-shadow(0 1px 1px rgba(90,60,0,.55)) drop-shadow(0 -1px 0 rgba(255,255,255,.35))}
-select,.inp{border:1px solid #cfd6e4;border-radius:6px;padding:5px 10px;background:#fff;font-size:13px;outline:none;font-family:inherit;color:var(--txt)}
-select:hover,.inp:hover{border-color:var(--blue)}
-#status{font-size:12px;color:#8a93a6}
-.nav{gap:2px}
-.nav a{font-size:14px;color:#33465e;text-decoration:none;padding:4px 12px;border:1px solid transparent;border-radius:6px}
-.nav a:hover{background:#e8f0ff;border-color:#cfd6e4;color:#1c4fa0}
-.rbtn{background:#fff;border:1px solid #cfd6e4;border-radius:6px;font-size:12px;padding:2px 9px;cursor:pointer;
- color:#33465e;font-family:inherit;line-height:1.7}
-.rbtn:hover{background:#e8f0ff;border-color:var(--blue)}
-#aiMarq{flex:1 1 260px;min-width:220px;overflow:hidden;white-space:nowrap;border:1px solid #b8e6d9;border-radius:8px;
- background:linear-gradient(180deg,#eafcf5,#d3f4e8);padding:4px 0;color:#0b5c40;font-size:14px}
-#aiMarq .mq{display:inline-block;padding-left:60%;animation:mqmove 70s linear infinite}
-#aiMarq:hover .mq{animation-play-state:paused;cursor:pointer}
-@keyframes mqmove{0%{transform:translateX(0)}100%{transform:translateX(-100%)}}
-.stats{display:flex;gap:16px;flex-wrap:wrap;align-items:center;background:#fff;border:1px solid var(--line);
- border-radius:10px;padding:8px 16px;margin:10px 14px 0;font-size:13.5px;box-shadow:0 1px 4px rgba(0,0,0,.04)}
-.stats b{font-weight:bold}
-.card{border:1px solid rgba(90,110,160,.18);border-radius:10px;padding:12px;box-shadow:0 2px 10px rgba(60,80,140,.08)}
-.card h3{font-size:19px;font-weight:bold;margin:0 0 8px;padding-bottom:6px;border-bottom:1px solid rgba(120,140,180,.25);
- display:flex;align-items:center;justify-content:center;gap:10px;position:relative;color:#2c3444}
-.card h3 .ht{background-clip:text;-webkit-background-clip:text;color:transparent;transition:filter .2s;
- filter:drop-shadow(0 1px 1px rgba(0,0,0,.28)) drop-shadow(0 -1px 0 rgba(255,255,255,.4))}
-.card h3:hover .ht{filter:drop-shadow(0 1px 2px rgba(0,0,0,.45)) brightness(1.15)}
-.card h3 .fr{position:absolute;right:0;top:0;font-size:12px;display:flex;gap:6px;align-items:center;color:#8a93a6}
-.hc-chart .ht{background-image:linear-gradient(180deg,#b48cff,#7b3ff2 45%,#4c1fa8 55%,#8d55f5)}
-.hc-flow .ht{background-image:linear-gradient(180deg,#8ff0c4,#12b886 45%,#087f5b 55%,#2ecf9a)}
-.hc-grid .ht{background-image:linear-gradient(180deg,#ffd08a,#f76707 45%,#c44e00 55%,#ff922b)}
-.hc-chk .ht{background-image:linear-gradient(180deg,#9ec2ff,#1d6fe0 45%,#0d3f8f 55%,#4d97f2)}
-.c-chart{background:linear-gradient(160deg,#eef4ff 0%,#f6f0ff 55%,#fdf2ff 100%)}
-.c-flow{background:linear-gradient(160deg,#edfbf4 0%,#f0f9ff 100%)}
-.c-grid{background:linear-gradient(160deg,#fff7e8 0%,#ffefe9 100%)}
-.c-chk{background:linear-gradient(160deg,#f2f0ff 0%,#eef8ff 100%)}
-#tfs{display:flex;gap:6px;margin:0 0 8px;flex-wrap:wrap}
-.tf{cursor:pointer;border:1px solid #c9d4e4;border-radius:6px;padding:2px 12px;font-size:13px;color:#33465e;
- background:#fff;user-select:none}
-.tf.on{background:#2b6cb0;color:#fff;border-color:#2b6cb0;font-weight:700}
-#recentInsts{display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:0 2px 8px}
-.kwrap{position:relative}
-#kgraph{width:100%;background:#fff;border:1px solid #e3e8f0;border-radius:8px;overflow:hidden;
- cursor:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='60' height='60'><text y='48' font-size='48'>🪄</text></svg>") 8 48, crosshair}
-#kgraph svg{display:block}
-.spark{position:absolute;pointer-events:none;font-size:36px;z-index:4;animation:spk 1.2s ease-out forwards}
-@keyframes spk{0%{transform:scale(.4);opacity:1}60%{transform:scale(1.35);opacity:.95}100%{transform:scale(.5);opacity:0}}
-#ktip{display:none;position:absolute;z-index:9;background:rgba(255,255,255,.97);border:1px solid #c9d4e4;
- border-radius:8px;padding:7px 10px;font:12px/1.7 Consolas,monospace;color:#1d2733;
- box-shadow:0 4px 14px rgba(20,40,80,.18);pointer-events:none;white-space:nowrap}
-#fetch{position:absolute;right:14px;top:10px;z-index:8;font-size:12px;color:#2b6cb0;background:rgba(255,255,255,.94);
- border:1px solid #c9d4e4;border-radius:8px;padding:3px 10px;box-shadow:0 2px 8px rgba(20,40,80,.12);display:none}
-#viewHint{display:none;position:absolute;left:14px;top:10px;z-index:8;font-size:12px;color:#8a6d3b;
- background:rgba(255,250,235,.95);border:1px solid #e8d6a8;border-radius:8px;padding:3px 10px;pointer-events:none}
-.legend{font-size:12px;color:#8a93a6;margin-top:7px;line-height:1.9}
-.tw{border:1px solid var(--line);border-radius:6px;overflow:auto;max-height:min(340px,36vh)}
-#gridTW{max-height:min(420px,44vh)}
-table{width:100%;border-collapse:collapse;font-size:14.5px;font-family:"LiSu","隶书","KaiTi","Microsoft YaHei",serif}
-thead th{position:sticky;top:0;z-index:2;padding:7px 6px;text-align:center;font-size:16px;font-weight:bold;
- white-space:nowrap;border-bottom:1px solid var(--line)}
-#flowT thead th{background:linear-gradient(180deg,#d8f5e6,#b2e6cd);border-bottom:2px solid #0ca678;color:#0b5c40}
-#gridT thead th{background:linear-gradient(180deg,#ffe8c2,#ffd39e);border-bottom:2px solid #e8590c;color:#8a3a00}
-#guardT thead th{background:linear-gradient(180deg,#dbe8ff,#bcd3fa);border-bottom:2px solid #1d6fe0;color:#0d3f8f}
-tbody td{padding:8px 6px;border-bottom:1px solid #eef1f6;white-space:nowrap;text-align:center}
-#flowT tbody tr:nth-child(even){background:#eefaf3}
-#gridT tbody tr:nth-child(even){background:#fff6ea}
-tbody tr:hover{background:#dceaff}
-tr.clickable{cursor:pointer}
-.up{color:var(--red);font-weight:bold}.dn{color:var(--green);font-weight:bold}
-.muted{color:#98a0ab;font-size:12.5px}
-.mono{font-family:Consolas,monospace;font-size:12.5px}
-.sline{font-size:13px;background:linear-gradient(180deg,#f7f9fc,#eef2f9);border:1px solid var(--line);
- border-radius:8px;padding:7px 12px;margin-bottom:8px}
-.oktag,.badtag{font-size:11.5px;font-weight:700;padding:1px 8px;border-radius:12px}
-.oktag{background:#e6f7ee;color:#0a7a44}.badtag{background:#fdecea;color:#c0392b}
-.c-grid.float-monitor{position:fixed;left:50%;bottom:12px;transform:translateX(-50%);width:min(720px,66vw);z-index:60;
- max-height:76vh;display:flex;flex-direction:column;box-shadow:0 8px 28px rgba(40,60,100,.30)}
-.c-grid.float-monitor h3{font-size:14px;justify-content:space-between;text-align:left;padding:4px 8px;cursor:move;user-select:none}
-.c-grid.float-monitor .gw-body{overflow:auto;min-height:0;flex:1;display:flex;flex-direction:column}
-.c-grid.float-monitor .gw-body .tw{flex:1;min-height:200px;max-height:none}
-.c-grid.float-monitor.min .gw-body{display:none}
-.c-grid.float-monitor .sline{font-size:12px;line-height:1.6}
-.c-grid.float-monitor #gridT thead th{font-size:14px;padding:6px}
-.c-grid.float-monitor #gridT tbody td{font-size:13px;padding:6px;white-space:normal}
-.gmin{flex:0 0 auto;width:26px;height:22px;line-height:20px;padding:0;font-size:13px;border-radius:6px;cursor:pointer}
-.foot{text-align:center;color:#98a0ab;font-size:12.5px;margin-top:16px}
+/* panel.css — 旧版OKX量化面板全局样式
+ *
+ * 【文件职责】面板页面的全部基础样式: CSS变量/字体/顶栏/卡片/表格/悬浮监测窗/粒子特效。
+ * 【功能清单】1. :root 主题色变量; 2. body 隶书字体与背景; 3. 顶栏(.top)渐变金字标题;
+ *             4. 表单控件(select/.inp)与导航(.nav); 5. 跑马灯(#aiMarq);
+ *             6. 统计条(.stats)与卡片(.card)及各卡配色(hc-*/c-*); 7. 周期按钮(.tf)与最近合约(#recentInsts);
+ *             8. K线容器(#kgraph魔法棒光标)+星星粒子(.spark)+提示框(#ktip/#fetch/#viewHint);
+ *             9. 数据表格(.tw/table/thead/tbody)斑马纹与sticky表头; 10. 涨跌配色(.up/.dn)与汇总条(.sline);
+ *             11. 底部悬浮监测窗(.float-monitor)含折叠/拖动样式; 12. 页脚(.foot)。
+ */
+:root{--red:#e03131;--green:#0ca678;--blue:#2f6fed;--bg:#f4f6fa;--card:#fff;--line:#e0e5ef;--txt:#1f2329}  /* 主题色变量: 红/绿/蓝/页面背景/卡片白/边框线/正文色 */
+*{box-sizing:border-box}                                 /* 全局border-box盒模型 */
+body{margin:0;background:var(--bg);font:15px/1.55 "LiSu","隶书","KaiTi","STKaiti","Microsoft YaHei",serif;color:var(--txt)}  /* 页面基础: 无外边距/浅灰背景/隶书字体/正文色 */
+.wrap{padding:12px 14px 130px;max-width:1560px;margin:0 auto}  /* 页面主容器: 内边距(底部留悬浮窗空间)/最大宽1560/水平居中 */
+.top{background:linear-gradient(180deg,#fff,#f0f1f5);border-bottom:1px solid var(--line);padding:9px 16px;  /* 顶栏: 白灰渐变/底边框/内边距 */
+ display:flex;gap:12px;align-items:center;flex-wrap:wrap;box-shadow:0 1px 4px rgba(0,0,0,.05)}  /* 弹性布局/间距12/垂直居中/可换行/轻阴影 */
+.top b{font-size:20px;font-weight:bold;letter-spacing:1px;  /* 顶栏标题: 20px加粗+字距 */
+ background:linear-gradient(180deg,#ffe9a8,#f6c445 45%,#c98a1b 55%,#f2b52f);-webkit-background-clip:text;background-clip:text;  /* 金色渐变只填充文字 */
+ color:transparent;filter:drop-shadow(0 1px 1px rgba(90,60,0,.55)) drop-shadow(0 -1px 0 rgba(255,255,255,.35))}  /* 文字透明露渐变+上下双层投影立体感 */
+select,.inp{border:1px solid #cfd6e4;border-radius:6px;padding:5px 10px;background:#fff;font-size:13px;outline:none;font-family:inherit;color:var(--txt)}  /* 下拉框/输入框通用样式: 灰边圆角白底13px */
+select:hover,.inp:hover{border-color:var(--blue)}        /* 控件悬停: 边框变蓝 */
+#status{font-size:12px;color:#8a93a6}                    /* 顶栏状态文字: 小号灰色 */
+.nav{gap:2px}                                            /* 导航容器: 项间距2px */
+.nav a{font-size:14px;color:#33465e;text-decoration:none;padding:4px 12px;border:1px solid transparent;border-radius:6px}  /* 导航链接: 深蓝灰字/透明边框圆角 */
+.nav a:hover{background:#e8f0ff;border-color:#cfd6e4;color:#1c4fa0}  /* 导航悬停: 浅蓝底+蓝边+深蓝字 */
+.rbtn{background:#fff;border:1px solid #cfd6e4;border-radius:6px;font-size:12px;padding:2px 9px;cursor:pointer;  /* 小按钮: 白底灰边圆角小字手型 */
+ color:#33465e;font-family:inherit;line-height:1.7}      /* 深蓝灰字/继承字体/行高1.7 */
+.rbtn:hover{background:#e8f0ff;border-color:var(--blue)} /* 小按钮悬停: 浅蓝底蓝边 */
+#aiMarq{flex:1 1 260px;min-width:220px;overflow:hidden;white-space:nowrap;border:1px solid #b8e6d9;border-radius:8px;  /* 跑马灯: 弹性占位/不换行裁剪/浅绿边圆角 */
+ background:linear-gradient(180deg,#eafcf5,#d3f4e8);padding:4px 0;color:#0b5c40;font-size:14px}  /* 浅绿渐变底/深绿字14px */
+#aiMarq .mq{display:inline-block;padding-left:60%;animation:mqmove 70s linear infinite}  /* 滚动内容: 左内边距60%起, 70秒匀速循环 */
+#aiMarq:hover .mq{animation-play-state:paused;cursor:pointer}  /* 悬停暂停滚动+手型 */
+@keyframes mqmove{0%{transform:translateX(0)}100%{transform:translateX(-100%)}}  /* 跑马灯关键帧: 从0平移到-100% */
+.stats{display:flex;gap:16px;flex-wrap:wrap;align-items:center;background:#fff;border:1px solid var(--line);  /* 统计条: 弹性换行白底灰边 */
+ border-radius:10px;padding:8px 16px;margin:10px 14px 0;font-size:13.5px;box-shadow:0 1px 4px rgba(0,0,0,.04)}  /* 圆角10/内边距/上外边距/13.5px/轻阴影 */
+.stats b{font-weight:bold}                               /* 统计条加粗文字 */
+.card{border:1px solid rgba(90,110,160,.18);border-radius:10px;padding:12px;box-shadow:0 2px 10px rgba(60,80,140,.08)}  /* 通用卡片: 半透明蓝灰边/圆角10/阴影 */
+.card h3{font-size:19px;font-weight:bold;margin:0 0 8px;padding-bottom:6px;border-bottom:1px solid rgba(120,140,180,.25);  /* 卡片标题: 19px粗体/底边框 */
+ display:flex;align-items:center;justify-content:center;gap:10px;position:relative;color:#2c3444}  /* 弹性居中/相对定位(放角标) */
+.card h3 .ht{background-clip:text;-webkit-background-clip:text;color:transparent;transition:filter .2s;  /* 标题渐变字容器: 透明文字露背景+滤镜过渡 */
+ filter:drop-shadow(0 1px 1px rgba(0,0,0,.28)) drop-shadow(0 -1px 0 rgba(255,255,255,.4))}  /* 双层投影立体字 */
+.card h3:hover .ht{filter:drop-shadow(0 1px 2px rgba(0,0,0,.45)) brightness(1.15)}  /* 悬停: 阴影加深+亮度提升 */
+.card h3 .fr{position:absolute;right:0;top:0;font-size:12px;display:flex;gap:6px;align-items:center;color:#8a93a6}  /* 标题右侧角标: 绝对定位小灰字 */
+.hc-chart .ht{background-image:linear-gradient(180deg,#b48cff,#7b3ff2 45%,#4c1fa8 55%,#8d55f5)}  /* K线卡标题: 紫色渐变字 */
+.hc-flow .ht{background-image:linear-gradient(180deg,#8ff0c4,#12b886 45%,#087f5b 55%,#2ecf9a)}   /* 流水卡标题: 绿色渐变字 */
+.hc-grid .ht{background-image:linear-gradient(180deg,#ffd08a,#f76707 45%,#c44e00 55%,#ff922b)}   /* 监测卡标题: 橙色渐变字 */
+.hc-chk .ht{background-image:linear-gradient(180deg,#9ec2ff,#1d6fe0 45%,#0d3f8f 55%,#4d97f2)}    /* 体检卡标题: 蓝色渐变字 */
+.c-chart{background:linear-gradient(160deg,#eef4ff 0%,#f6f0ff 55%,#fdf2ff 100%)}  /* K线卡底色: 蓝紫粉斜渐变 */
+.c-flow{background:linear-gradient(160deg,#edfbf4 0%,#f0f9ff 100%)}               /* 流水卡底色: 绿蓝斜渐变 */
+.c-grid{background:linear-gradient(160deg,#fff7e8 0%,#ffefe9 100%)}               /* 监测卡底色: 橙红斜渐变 */
+.c-chk{background:linear-gradient(160deg,#f2f0ff 0%,#eef8ff 100%)}                /* 体检卡底色: 紫蓝斜渐变 */
+#tfs{display:flex;gap:6px;margin:0 0 8px;flex-wrap:wrap}  /* 周期按钮排: 弹性换行 */
+.tf{cursor:pointer;border:1px solid #c9d4e4;border-radius:6px;padding:2px 12px;font-size:13px;color:#33465e;  /* 周期按钮: 手型/灰边圆角/13px */
+ background:#fff;user-select:none}                       /* 白底/禁止选中文字 */
+.tf.on{background:#2b6cb0;color:#fff;border-color:#2b6cb0;font-weight:700}  /* 选中态: 蓝底白字加粗 */
+#recentInsts{display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:0 2px 8px}  /* 最近合约按钮排: 弹性换行 */
+.kwrap{position:relative}                                /* K线区包裹: 相对定位(给子元素定位锚点) */
+#kgraph{width:100%;background:#fff;border:1px solid #e3e8f0;border-radius:8px;overflow:hidden;  /* 旧SVG K线容器: 白底灰边圆角裁剪 */
+ cursor:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='60' height='60'><text y='48' font-size='48'>🪄</text></svg>") 8 48, crosshair}  /* 魔法棒emoji光标(热点8,48), 兜底crosshair */
+#kgraph svg{display:block}                               /* 内嵌SVG块级显示 */
+.spark{position:absolute;pointer-events:none;font-size:36px;z-index:4;animation:spk 1.2s ease-out forwards}  /* 星星粒子: 绝对定位/不响应鼠标/36px/1.2秒动画保持末帧 */
+@keyframes spk{0%{transform:scale(.4);opacity:1}60%{transform:scale(1.35);opacity:.95}100%{transform:scale(.5);opacity:0}}  /* 粒子关键帧: 放大再缩小淡出 */
+#ktip{display:none;position:absolute;z-index:9;background:rgba(255,255,255,.97);border:1px solid #c9d4e4;  /* 旧K线提示框: 默认隐藏/白底半透明/灰边 */
+ border-radius:8px;padding:7px 10px;font:12px/1.7 Consolas,monospace;color:#1d2733;  /* 圆角/等宽字12px/深色字 */
+ box-shadow:0 4px 14px rgba(20,40,80,.18);pointer-events:none;white-space:nowrap}  /* 阴影/不挡鼠标/不换行 */
+#fetch{position:absolute;right:14px;top:10px;z-index:8;font-size:12px;color:#2b6cb0;background:rgba(255,255,255,.94);  /* 取数提示角标: 右上角/蓝字白底 */
+ border:1px solid #c9d4e4;border-radius:8px;padding:3px 10px;box-shadow:0 2px 8px rgba(20,40,80,.12);display:none}  /* 灰边圆角/阴影/默认隐藏 */
+#viewHint{display:none;position:absolute;left:14px;top:10px;z-index:8;font-size:12px;color:#8a6d3b;  /* 视口提示: 左上角/默认隐藏/棕字 */
+ background:rgba(255,250,235,.95);border:1px solid #e8d6a8;border-radius:8px;padding:3px 10px;pointer-events:none}  /* 米黄底/金边/不挡鼠标 */
+.legend{font-size:12px;color:#8a93a6;margin-top:7px;line-height:1.9}  /* 图例说明: 小灰字/行高1.9 */
+.tw{border:1px solid var(--line);border-radius:6px;overflow:auto;max-height:min(340px,36vh)}  /* 表格滚动容器: 灰边圆角/超高滚动(最多340px或36vh) */
+#gridTW{max-height:min(420px,44vh)}                      /* 监测表容器: 更高一点 */
+table{width:100%;border-collapse:collapse;font-size:14.5px;font-family:"LiSu","隶书","KaiTi","Microsoft YaHei",serif}  /* 数据表格: 全宽/合并边框/14.5px隶书 */
+thead th{position:sticky;top:0;z-index:2;padding:7px 6px;text-align:center;font-size:16px;font-weight:bold;  /* 表头: sticky吸顶/居中/16px粗体 */
+ white-space:nowrap;border-bottom:1px solid var(--line)}  /* 不换行/底边框 */
+#flowT thead th{background:linear-gradient(180deg,#d8f5e6,#b2e6cd);border-bottom:2px solid #0ca678;color:#0b5c40}  /* 流水表头: 绿色渐变/绿底边/深绿字 */
+#gridT thead th{background:linear-gradient(180deg,#ffe8c2,#ffd39e);border-bottom:2px solid #e8590c;color:#8a3a00}  /* 监测表头: 橙色渐变/橙底边/棕字 */
+#guardT thead th{background:linear-gradient(180deg,#dbe8ff,#bcd3fa);border-bottom:2px solid #1d6fe0;color:#0d3f8f}  /* 保障表头: 蓝色渐变/蓝底边/深蓝字 */
+tbody td{padding:8px 6px;border-bottom:1px solid #eef1f6;white-space:nowrap;text-align:center}  /* 数据单元格: 内边距/浅色底边/不换行/居中 */
+#flowT tbody tr:nth-child(even){background:#eefaf3}      /* 流水表偶数行: 浅绿斑马纹 */
+#gridT tbody tr:nth-child(even){background:#fff6ea}      /* 监测表偶数行: 浅橙斑马纹 */
+tbody tr:hover{background:#dceaff}                       /* 行悬停: 浅蓝高亮 */
+tr.clickable{cursor:pointer}                             /* 可点击行: 手型 */
+.up{color:var(--red);font-weight:bold}.dn{color:var(--green);font-weight:bold}  /* 涨红跌绿: 均加粗(国内配色) */
+.muted{color:#98a0ab;font-size:12.5px}                   /* 弱化文字: 灰色小字 */
+.mono{font-family:Consolas,monospace;font-size:12.5px}   /* 等宽字体类 */
+.sline{font-size:13px;background:linear-gradient(180deg,#f7f9fc,#eef2f9);border:1px solid var(--line);  /* 汇总条: 13px/浅灰渐变底/灰边 */
+ border-radius:8px;padding:7px 12px;margin-bottom:8px}   /* 圆角/内边距/下外边距 */
+.oktag,.badtag{font-size:11.5px;font-weight:700;padding:1px 8px;border-radius:12px}  /* OK/异常标签: 小号粗体胶囊 */
+.oktag{background:#e6f7ee;color:#0a7a44}.badtag{background:#fdecea;color:#c0392b}  /* OK绿底绿字/异常红底红字 */
+.c-grid.float-monitor{position:fixed;left:50%;bottom:12px;transform:translateX(-50%);width:min(720px,66vw);z-index:60;  /* 悬浮监测窗: fixed底部居中/宽min(720,66vw)/高层级 */
+ max-height:76vh;display:flex;flex-direction:column;box-shadow:0 8px 28px rgba(40,60,100,.30)}  /* 最高76vh/纵向弹性/重阴影 */
+.c-grid.float-monitor h3{font-size:14px;justify-content:space-between;text-align:left;padding:4px 8px;cursor:move;user-select:none}  /* 悬浮窗标题: 小字左对齐/两端分布/拖动手型/禁选中 */
+.c-grid.float-monitor .gw-body{overflow:auto;min-height:0;flex:1;display:flex;flex-direction:column}  /* 悬浮窗主体: 可滚动/占满剩余空间 */
+.c-grid.float-monitor .gw-body .tw{flex:1;min-height:200px;max-height:none}  /* 主体内表格容器: 弹性占满/最小200px */
+.c-grid.float-monitor.min .gw-body{display:none}         /* 折叠态: 隐藏主体只留标题栏 */
+.c-grid.float-monitor .sline{font-size:12px;line-height:1.6}  /* 悬浮窗内汇总条: 缩小字号 */
+.c-grid.float-monitor #gridT thead th{font-size:14px;padding:6px}  /* 悬浮窗内表头: 缩小 */
+.c-grid.float-monitor #gridT tbody td{font-size:13px;padding:6px;white-space:normal}  /* 悬浮窗内单元格: 13px/允许换行 */
+.gmin{flex:0 0 auto;width:26px;height:22px;line-height:20px;padding:0;font-size:13px;border-radius:6px;cursor:pointer}  /* 折叠按钮: 固定小尺寸/手型 */
+.foot{text-align:center;color:#98a0ab;font-size:12.5px;margin-top:16px}  /* 页脚: 居中灰色小字 */

@@ -56,12 +56,30 @@ docs/            架构文档 + 架构图
 
 ## 构建与运行
 
+### ⚡ 一键安装（推荐）
+
+```
+setup.bat          # 自动检测并安装 XAMPP(Apache+PHP+MariaDB) + MinGW g++ + MySQL Connector C,
+                   # 配置 PHP FFI / Apache 反向代理, 初始化数据库(docs/schema.sql), 编译全部 C++ 组件
+setup.bat install  # 只装环境
+setup.bat build    # 只编译
+```
+
+配套配置示例在 `configs/`：`okx_cred.example.sql`（凭证模板）、`httpd-proxy.conf`（Apache 反代）、`php-ffi-snippet.ini`。
+
+### 手动构建
+
 ```
 编译器：MinGW-w64 g++ 13.1.0（-std=gnu++17 -O2 -static -Wall -Wextra）
 依赖：  MySQL Connector C 6.1.11（include/lib）、winhttp、ws2_32、bcrypt
         guard 另需 ole32、oleaut32、taskschd
+        ⚠ sigcore.cpp 同源编入 apihub/tphub/datahub/tradehub/cmd_pitbt（另单独编译 sigcore.dll 供 PHP FFI）
 部署：  Windows + XAMPP(MariaDB) + 计划任务开机自启（guard 以 SCM 服务运行）
 ```
+
+### 代码注释说明
+
+本仓库全部源码（C++/PHP/JS/CSS/HTML）均带**逐行中文注释**：每个文件头部有块注释（职责/函数清单/算法说明），每一行有效代码有行内注释解释业务含义。注释版与编译版同源——注释版源码已通过 `g++ -Wall -Wextra` 零错误编译与 `php -l`/`node --check` 语法校验，可直接编译运行。
 
 ## 数据库
 

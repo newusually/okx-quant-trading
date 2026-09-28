@@ -1,111 +1,119 @@
-/* okx_panel.css — 原版OKX量化面板v3全部样式(okx_panel_backup_20260927.php提取) + 新K线组件所需样式 */
-:root{--red:#e03131;--green:#0ca678;--blue:#2f6fed;--bg:#f4f6fa;--card:#fff;--line:#e0e5ef;--txt:#1f2329}
-*{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--bg);font:15px/1.5 "LiSu","隶书","KaiTi","STKaiti",serif;color:var(--txt)}
-.btn{background:linear-gradient(180deg,#5b93ff 0%,#3b78f0 50%,#2f6fed 100%);color:#fff;border:1px solid #2557c8;
-  border-radius:6px;padding:6px 16px;cursor:pointer;font-size:13px;font-weight:bold;box-shadow:0 2px 4px rgba(47,111,237,.25)}
-.btn:hover{background:linear-gradient(180deg,#78a6ff,#5588f5 50%,#4479f2)}
-.btn:active{background:linear-gradient(180deg,#1d47a8,#2a56c0);border-color:#16347c;transform:translateY(1px);box-shadow:none}
-.btn.ghost{background:#fff;color:var(--blue);border:1px solid #cfd6e4;box-shadow:none}
-.btn.ghost:hover{border-color:var(--blue)}
-.btn.ghost:active{background:#dce7ff;color:#16347c}
-.top{background:linear-gradient(180deg,#fff,#f0f1f5);border-bottom:1px solid var(--line);padding:10px 16px;
-  display:flex;gap:12px;align-items:center;flex-wrap:wrap;box-shadow:0 1px 4px rgba(0,0,0,.05)}
-.top b{font-size:20px;font-weight:bold;letter-spacing:1px;
-  background:linear-gradient(180deg,#ffe9a8,#f6c445 45%,#c98a1b 55%,#f2b52f);-webkit-background-clip:text;background-clip:text;color:transparent;
-  filter:drop-shadow(0 1px 1px rgba(90,60,0,.55)) drop-shadow(0 -1px 0 rgba(255,255,255,.35))}
-select,.inp{border:1px solid #cfd6e4;border-radius:6px;padding:5px 10px;background:#fff;font-size:13px;outline:none}
-#symbol{width:auto;flex:0 0 auto;min-width:0}
-select:hover,.inp:hover{border-color:var(--blue)}
-.inp:focus{border-color:var(--blue)}
-#status{font-size:12px;color:#8a93a6}
+/* okx_panel.css — 原版OKX量化面板v3全部样式(okx_panel_backup_20260927.php提取) + 新K线组件所需样式
+ *
+ * 【文件职责】index.php 主面板的完整样式表(v3版): 按钮/顶栏/卡片/表格/筛选菜单/遮罩弹窗 + 新K线组件(#chart)与悬浮监测窗样式。
+ * 【功能清单】1. 主题变量与基础重置; 2. .btn 按钮系(实心/ghost); 3. 顶栏渐变金字标题;
+ *             4. 表单控件与#symbol; 5. 卡片(.card/hc-*/c-*)渐变配色; 6. 汇总条(#slineTop/.sline)与跑马灯(#aiMarq);
+ *             7. Excel筛选菜单(#fltMenu)与▼按钮(.fbtn); 8. 数据表格(sticky表头/斑马纹/可点击行);
+ *             9. 遮罩弹窗(#mask); 10. 新K线组件(#chart/#tip/#load/#fetch/#live/#tfs);
+ *             11. 底部悬浮监测窗(.float-monitor)折叠/拖动/内表样式。
+ */
+:root{--red:#e03131;--green:#0ca678;--blue:#2f6fed;--bg:#f4f6fa;--card:#fff;--line:#e0e5ef;--txt:#1f2329}  /* 主题色变量: 红/绿/蓝/背景/卡片/边框/正文 */
+*{box-sizing:border-box;margin:0;padding:0}              /* 全局重置: border-box+清零边距内边距 */
+body{background:var(--bg);font:15px/1.5 "LiSu","隶书","KaiTi","STKaiti",serif;color:var(--txt)}  /* 页面基础: 浅灰背景/隶书15px/深色正文 */
+.btn{background:linear-gradient(180deg,#5b93ff 0%,#3b78f0 50%,#2f6fed 100%);color:#fff;border:1px solid #2557c8;  /* 主按钮: 蓝色渐变/白字/深蓝边 */
+  border-radius:6px;padding:6px 16px;cursor:pointer;font-size:13px;font-weight:bold;box-shadow:0 2px 4px rgba(47,111,237,.25)}  /* 圆角/手型/13px粗体/蓝色投影 */
+.btn:hover{background:linear-gradient(180deg,#78a6ff,#5588f5 50%,#4479f2)}  /* 按钮悬停: 渐变提亮 */
+.btn:active{background:linear-gradient(180deg,#1d47a8,#2a56c0);border-color:#16347c;transform:translateY(1px);box-shadow:none}  /* 按钮按下: 渐变加深/下移1px/去阴影 */
+.btn.ghost{background:#fff;color:var(--blue);border:1px solid #cfd6e4;box-shadow:none}  /* 幽灵按钮: 白底蓝字灰边无阴影 */
+.btn.ghost:hover{border-color:var(--blue)}               /* 幽灵按钮悬停: 边框变蓝 */
+.btn.ghost:active{background:#dce7ff;color:#16347c}      /* 幽灵按钮按下: 浅蓝底深蓝字 */
+.top{background:linear-gradient(180deg,#fff,#f0f1f5);border-bottom:1px solid var(--line);padding:10px 16px;  /* 顶栏: 白灰渐变/底边框/内边距 */
+  display:flex;gap:12px;align-items:center;flex-wrap:wrap;box-shadow:0 1px 4px rgba(0,0,0,.05)}  /* 弹性换行/间距12/轻阴影 */
+.top b{font-size:20px;font-weight:bold;letter-spacing:1px;  /* 顶栏标题: 20px加粗+字距 */
+  background:linear-gradient(180deg,#ffe9a8,#f6c445 45%,#c98a1b 55%,#f2b52f);-webkit-background-clip:text;background-clip:text;color:transparent;  /* 金色渐变填充文字 */
+  filter:drop-shadow(0 1px 1px rgba(90,60,0,.55)) drop-shadow(0 -1px 0 rgba(255,255,255,.35))}  /* 双层投影立体金字 */
+select,.inp{border:1px solid #cfd6e4;border-radius:6px;padding:5px 10px;background:#fff;font-size:13px;outline:none}  /* 下拉框/输入框: 灰边圆角白底13px */
+#symbol{width:auto;flex:0 0 auto;min-width:0}            /* 合约下拉框: 按内容自适应宽不压缩 */
+select:hover,.inp:hover{border-color:var(--blue)}        /* 控件悬停: 蓝边 */
+.inp:focus{border-color:var(--blue)}                     /* 输入框聚焦: 蓝边 */
+#status{font-size:12px;color:#8a93a6}                    /* 状态文字: 小灰字 */
 /* 2026-09-28c: K线图全宽拉长(左到右), 监测窗口改右下角悬浮 */
-.wrap{padding:12px}
-.wrap>div{display:flex;flex-direction:column;gap:12px}
-.c-chart{grid-column:1 / -1}
-@media (max-width:1100px){.wrap{grid-template-columns:1fr}}
-.c-chart{background:linear-gradient(160deg,#eef4ff 0%,#f6f0ff 55%,#fdf2ff 100%)}
-.c-flow {background:linear-gradient(160deg,#edfbf4 0%,#f0f9ff 100%)}
-.c-grid {background:linear-gradient(160deg,#fff7e8 0%,#ffefe9 100%)}
-.c-chk  {background:linear-gradient(160deg,#f2f0ff 0%,#eef8ff 100%)}
-.card{border:1px solid rgba(90,110,160,.18);border-radius:10px;padding:12px;box-shadow:0 2px 10px rgba(60,80,140,.08)}
-.card h3{font-size:20px;font-weight:bold;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid rgba(120,140,180,.25);text-align:center;
-  -webkit-background-clip:text;background-clip:text;color:transparent;transition:filter .2s;cursor:default;
-  filter:drop-shadow(0 1px 1px rgba(0,0,0,.28)) drop-shadow(0 -1px 0 rgba(255,255,255,.4))}
-.card h3:hover{filter:drop-shadow(0 1px 2px rgba(0,0,0,.45)) brightness(1.18)}
-.hc-chart{background-image:linear-gradient(180deg,#b48cff,#7b3ff2 45%,#4c1fa8 55%,#8d55f5)}
-.hc-flow {background-image:linear-gradient(180deg,#8ff0c4,#12b886 45%,#087f5b 55%,#2ecf9a)}
-.hc-grid {background-image:linear-gradient(180deg,#ffd08a,#f76707 45%,#c44e00 55%,#ff922b)}
-.hc-chk  {background-image:linear-gradient(180deg,#9ec2ff,#1d6fe0 45%,#0d3f8f 55%,#4d97f2)}
-#slineTop{flex:0 1 auto;white-space:nowrap;font-size:15px;
-  background:linear-gradient(180deg,#fff1f3,#ffe3e8);border:1px solid #f1b8c1;border-radius:8px;padding:5px 12px;color:#8c1d2f}
-#aiMarq{flex:1 1 260px;min-width:220px;overflow:hidden;white-space:nowrap;border:1px solid #b8e6d9;border-radius:8px;
-  background:linear-gradient(180deg,#eafcf5,#d3f4e8);padding:5px 0;color:#0b5c40;font-size:15px;position:relative}
-#aiMarq .mq{display:inline-block;padding-left:100%;animation:mqmove 54s linear infinite}
-#aiMarq:hover .mq{animation-play-state:paused;cursor:pointer}
-@keyframes mqmove{0%{transform:translateX(0)}100%{transform:translateX(-100%)}}
-#aiDetailBtn{background:linear-gradient(180deg,#74e0b9,#1fa876);color:#fff;border:1px solid #0e7d55;font-weight:bold}
-#aiDetailBtn:hover{filter:brightness(1.12)}
-#fltMenu{position:fixed;z-index:99;background:#232a36;color:#f3e9d6;border:1px solid #4a5568;border-radius:8px;
-  box-shadow:0 4px 14px rgba(0,0,0,.4);padding:6px 10px;max-height:280px;overflow:auto;display:none;min-width:190px;
-  font-family:"LiSu","隶书","KaiTi",serif;font-size:19px}
-#fltMenu label{display:block;padding:2px 2px;white-space:nowrap;cursor:pointer}
-#fltMenu .fmA{border-bottom:1px solid #4a5568;margin-bottom:4px;padding-bottom:4px;font-weight:bold}
-.fbtn{display:inline-block;margin-left:5px;padding:0 5px;border:1px solid #b9c4d6;border-radius:3px;background:#fff;
-  font-size:12px;font-family:"Segoe UI",sans-serif;cursor:pointer;user-select:none;line-height:1.4}
-.fbtn:hover{background:#e8f0ff;border-color:var(--blue)}
-.legend{font-size:12px;color:#8a93a6;margin-top:6px}
-.tw{max-height:min(300px,30vh);overflow:auto;border:1px solid var(--line);border-radius:6px}
-#gridTW{max-height:min(500px,52vh);min-height:0}
-table{width:100%;border-collapse:collapse;font-size:15px;table-layout:auto}
-#flowT thead th{background:linear-gradient(180deg,#d8f5e6,#b2e6cd);border-bottom:2px solid #0ca678;color:#0b5c40}
-#flowT th:nth-child(5),#flowT td:nth-child(5){width:80px}
-#gridT thead th{background:linear-gradient(180deg,#ffe8c2,#ffd39e);border-bottom:2px solid #e8590c;color:#8a3a00}
-thead th{position:sticky;top:0;z-index:2;padding:8px 6px;text-align:center;font-size:20px;font-weight:bold;cursor:pointer;white-space:nowrap;user-select:none;transition:filter .15s}
-thead th:hover{filter:brightness(1.08)}
-#flowT tbody tr:nth-child(even){background:#eefaf3}
-#gridT tbody tr:nth-child(even){background:#fff6ea}
-tbody td{padding:9px 6px;border-bottom:1px solid #eef1f6;white-space:nowrap;text-align:center}
-tbody tr:hover{background:#dceaff}
-tbody tr.clickable{cursor:pointer}
-.sline{font-size:13px;background:linear-gradient(180deg,#f7f9fc,#eef2f9);border:1px solid var(--line);
-  border-radius:8px;padding:8px 12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:10px}
-.frow{display:flex;gap:8px;margin-bottom:8px}
-.frow .inp{flex:1;min-width:0}
-.aiItem{border-bottom:1px solid #eef1f6;padding:6px 4px;cursor:pointer}
-.aiItem:hover{background:#f2f7ff}
-.aiItem .t{color:#1971c2;font-weight:bold;margin-right:8px}
-.aiItem .k{font-weight:bold;margin-right:8px}
-#mask{display:none;position:fixed;inset:0;background:rgba(20,30,50,.45);z-index:50;align-items:center;justify-content:center}
-#mask .box{background:#fff;border-radius:12px;width:min(920px,94vw);max-height:88vh;display:flex;flex-direction:column;overflow:hidden}
-#mask .box header{padding:12px 16px;border-bottom:2px solid var(--blue);font-weight:bold;color:#33415c;display:flex;justify-content:space-between}
-#mask pre{margin:0;padding:14px 16px;overflow:auto;font:12px/1.6 Consolas,"Microsoft YaHei",monospace;white-space:pre-wrap}
+.wrap{padding:12px}                                      /* 主容器: 内边距12px */
+.wrap>div{display:flex;flex-direction:column;gap:12px}   /* 容器直系div: 纵向弹性/间距12 */
+.c-chart{grid-column:1 / -1}                             /* K线卡: 网格布局占满整行 */
+@media (max-width:1100px){.wrap{grid-template-columns:1fr}}  /* 窄屏(<1100px): 网格退化为单列 */
+.c-chart{background:linear-gradient(160deg,#eef4ff 0%,#f6f0ff 55%,#fdf2ff 100%)}  /* K线卡底色: 蓝紫粉斜渐变 */
+.c-flow {background:linear-gradient(160deg,#edfbf4 0%,#f0f9ff 100%)}  /* 流水卡底色: 绿蓝渐变 */
+.c-grid {background:linear-gradient(160deg,#fff7e8 0%,#ffefe9 100%)}  /* 监测卡底色: 橙红渐变 */
+.c-chk  {background:linear-gradient(160deg,#f2f0ff 0%,#eef8ff 100%)}  /* 体检卡底色: 紫蓝渐变 */
+.card{border:1px solid rgba(90,110,160,.18);border-radius:10px;padding:12px;box-shadow:0 2px 10px rgba(60,80,140,.08)}  /* 通用卡片: 蓝灰半透明边/圆角10/阴影 */
+.card h3{font-size:20px;font-weight:bold;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid rgba(120,140,180,.25);text-align:center;  /* 卡片标题: 20px粗体/底边框/居中 */
+  -webkit-background-clip:text;background-clip:text;color:transparent;transition:filter .2s;cursor:default;  /* 渐变填充文字/滤镜过渡 */
+  filter:drop-shadow(0 1px 1px rgba(0,0,0,.28)) drop-shadow(0 -1px 0 rgba(255,255,255,.4))}  /* 双层投影立体字 */
+.card h3:hover{filter:drop-shadow(0 1px 2px rgba(0,0,0,.45)) brightness(1.18)}  /* 标题悬停: 阴影加深提亮 */
+.hc-chart{background-image:linear-gradient(180deg,#b48cff,#7b3ff2 45%,#4c1fa8 55%,#8d55f5)}  /* K线卡标题渐变: 紫色 */
+.hc-flow {background-image:linear-gradient(180deg,#8ff0c4,#12b886 45%,#087f5b 55%,#2ecf9a)}  /* 流水卡标题渐变: 绿色 */
+.hc-grid {background-image:linear-gradient(180deg,#ffd08a,#f76707 45%,#c44e00 55%,#ff922b)}  /* 监测卡标题渐变: 橙色 */
+.hc-chk  {background-image:linear-gradient(180deg,#9ec2ff,#1d6fe0 45%,#0d3f8f 55%,#4d97f2)}  /* 体检卡标题渐变: 蓝色 */
+#slineTop{flex:0 1 auto;white-space:nowrap;font-size:15px;  /* 顶部汇总条: 不压缩不换行15px */
+  background:linear-gradient(180deg,#fff1f3,#ffe3e8);border:1px solid #f1b8c1;border-radius:8px;padding:5px 12px;color:#8c1d2f}  /* 粉红渐变底/粉边/暗红字 */
+#aiMarq{flex:1 1 260px;min-width:220px;overflow:hidden;white-space:nowrap;border:1px solid #b8e6d9;border-radius:8px;  /* 跑马灯: 弹性占位/裁剪/绿边圆角 */
+  background:linear-gradient(180deg,#eafcf5,#d3f4e8);padding:5px 0;color:#0b5c40;font-size:15px;position:relative}  /* 浅绿渐变/深绿字15px */
+#aiMarq .mq{display:inline-block;padding-left:100%;animation:mqmove 54s linear infinite}  /* 滚动内容: 从右侧100%起54秒匀速 */
+#aiMarq:hover .mq{animation-play-state:paused;cursor:pointer}  /* 悬停暂停+手型 */
+@keyframes mqmove{0%{transform:translateX(0)}100%{transform:translateX(-100%)}}  /* 跑马灯关键帧 */
+#aiDetailBtn{background:linear-gradient(180deg,#74e0b9,#1fa876);color:#fff;border:1px solid #0e7d55;font-weight:bold}  /* AI详情按钮: 绿色渐变白字(历史遗留样式) */
+#aiDetailBtn:hover{filter:brightness(1.12)}              /* AI详情按钮悬停: 提亮 */
+#fltMenu{position:fixed;z-index:99;background:#232a36;color:#f3e9d6;border:1px solid #4a5568;border-radius:8px;  /* Excel筛选菜单: fixed浮层/深底米字/灰边圆角 */
+  box-shadow:0 4px 14px rgba(0,0,0,.4);padding:6px 10px;max-height:280px;overflow:auto;display:none;min-width:190px;  /* 重阴影/超高滚动/默认隐藏/最小宽190 */
+  font-family:"LiSu","隶书","KaiTi",serif;font-size:19px}  /* 隶书19px */
+#fltMenu label{display:block;padding:2px 2px;white-space:nowrap;cursor:pointer}  /* 菜单选项: 块级/不换行/手型 */
+#fltMenu .fmA{border-bottom:1px solid #4a5568;margin-bottom:4px;padding-bottom:4px;font-weight:bold}  /* "(全选)"行: 底边分隔+加粗 */
+.fbtn{display:inline-block;margin-left:5px;padding:0 5px;border:1px solid #b9c4d6;border-radius:3px;background:#fff;  /* 表头▼筛选按钮: 小号白底灰边 */
+  font-size:12px;font-family:"Segoe UI",sans-serif;cursor:pointer;user-select:none;line-height:1.4}  /* 手型/禁选中 */
+.fbtn:hover{background:#e8f0ff;border-color:var(--blue)} /* ▼按钮悬停: 浅蓝底蓝边 */
+.legend{font-size:12px;color:#8a93a6;margin-top:6px}     /* 图例说明: 小灰字 */
+.tw{max-height:min(300px,30vh);overflow:auto;border:1px solid var(--line);border-radius:6px}  /* 表格滚动容器: 限高300px/30vh */
+#gridTW{max-height:min(500px,52vh);min-height:0}         /* 监测表容器: 更高(500px/52vh) */
+table{width:100%;border-collapse:collapse;font-size:15px;table-layout:auto}  /* 数据表格: 全宽合并边框15px自适应列宽 */
+#flowT thead th{background:linear-gradient(180deg,#d8f5e6,#b2e6cd);border-bottom:2px solid #0ca678;color:#0b5c40}  /* 流水表头: 绿渐变/绿底边/深绿字 */
+#flowT th:nth-child(5),#flowT td:nth-child(5){width:80px}  /* 流水表第5列固定宽80px */
+#gridT thead th{background:linear-gradient(180deg,#ffe8c2,#ffd39e);border-bottom:2px solid #e8590c;color:#8a3a00}  /* 监测表头: 橙渐变/橙底边/棕字 */
+thead th{position:sticky;top:0;z-index:2;padding:8px 6px;text-align:center;font-size:20px;font-weight:bold;cursor:pointer;white-space:nowrap;user-select:none;transition:filter .15s}  /* 通用表头: 吸顶/居中/20px粗体/可点击排序/禁选中 */
+thead th:hover{filter:brightness(1.08)}                  /* 表头悬停: 微提亮 */
+#flowT tbody tr:nth-child(even){background:#eefaf3}      /* 流水表偶数行: 浅绿斑马纹 */
+#gridT tbody tr:nth-child(even){background:#fff6ea}      /* 监测表偶数行: 浅橙斑马纹 */
+tbody td{padding:9px 6px;border-bottom:1px solid #eef1f6;white-space:nowrap;text-align:center}  /* 数据单元格: 内边距/浅底边/不换行/居中 */
+tbody tr:hover{background:#dceaff}                       /* 行悬停: 浅蓝高亮 */
+tbody tr.clickable{cursor:pointer}                       /* 可点击行: 手型 */
+.sline{font-size:13px;background:linear-gradient(180deg,#f7f9fc,#eef2f9);border:1px solid var(--line);  /* 汇总条: 13px/浅灰渐变/灰边 */
+  border-radius:8px;padding:8px 12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:10px}  /* 圆角/超宽省略号 */
+.frow{display:flex;gap:8px;margin-bottom:8px}            /* 表单行: 弹性/间距8 */
+.frow .inp{flex:1;min-width:0}                           /* 行内输入框: 弹性占满 */
+.aiItem{border-bottom:1px solid #eef1f6;padding:6px 4px;cursor:pointer}  /* AI条目(历史遗留): 底边分隔/手型 */
+.aiItem:hover{background:#f2f7ff}                        /* AI条目悬停: 浅蓝底 */
+.aiItem .t{color:#1971c2;font-weight:bold;margin-right:8px}  /* AI条目时间: 蓝色粗体 */
+.aiItem .k{font-weight:bold;margin-right:8px}            /* AI条目关键词: 粗体 */
+#mask{display:none;position:fixed;inset:0;background:rgba(20,30,50,.45);z-index:50;align-items:center;justify-content:center}  /* 遮罩弹窗: fixed全屏半透明深底/默认隐藏/内容居中 */
+#mask .box{background:#fff;border-radius:12px;width:min(920px,94vw);max-height:88vh;display:flex;flex-direction:column;overflow:hidden}  /* 弹窗白盒: 圆角12/宽min(920,94vw)/限高88vh */
+#mask .box header{padding:12px 16px;border-bottom:2px solid var(--blue);font-weight:bold;color:#33415c;display:flex;justify-content:space-between}  /* 弹窗头: 蓝底边粗体/两端分布 */
+#mask pre{margin:0;padding:14px 16px;overflow:auto;font:12px/1.6 Consolas,"Microsoft YaHei",monospace;white-space:pre-wrap}  /* 弹窗正文pre: 等宽字/可滚动/保留换行 */
 /* ===== 新K线组件(nqall同款)所需样式 ===== */
-#chart{width:100%;height:clamp(460px,64vh,780px);position:relative;background:linear-gradient(180deg,#fdfeff 0%,#f6f8fb 100%);border:1px solid #e3e8f0;border-radius:10px;box-shadow:inset 0 1px 4px rgba(20,40,80,.05),0 2px 10px rgba(20,40,80,.04)}
+#chart{width:100%;height:clamp(460px,64vh,780px);position:relative;background:linear-gradient(180deg,#fdfeff 0%,#f6f8fb 100%);border:1px solid #e3e8f0;border-radius:10px;box-shadow:inset 0 1px 4px rgba(20,40,80,.05),0 2px 10px rgba(20,40,80,.04)}  /* K线容器: 全宽/限高clamp(460~780px)/白灰渐变/灰边圆角/内外双层阴影 */
 /* 底部居中悬浮监测窗 (2026-09-28e: 默认中下方, 标题栏可拖动) */
-.c-grid.float-monitor{position:fixed;left:50%;bottom:12px;transform:translateX(-50%);width:min(640px,64vw);z-index:60;max-height:76vh;display:flex;flex-direction:column;box-shadow:0 8px 28px rgba(40,60,100,.30)}
-.c-grid.float-monitor h3{font-size:14px;text-align:left;padding:6px 10px;display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:move;user-select:none;touch-action:none}
-.c-grid.float-monitor .gw-body{overflow:auto;min-height:0;flex:1;display:flex;flex-direction:column}
-.c-grid.float-monitor .gw-body .tw{flex:1;min-height:0;max-height:none}
-.c-grid.float-monitor.min .gw-body{display:none}
-.c-grid.float-monitor .gmin{flex:0 0 auto;width:26px;height:22px;line-height:20px;padding:0;font-size:13px;border-radius:6px}
+.c-grid.float-monitor{position:fixed;left:50%;bottom:12px;transform:translateX(-50%);width:min(640px,64vw);z-index:60;max-height:76vh;display:flex;flex-direction:column;box-shadow:0 8px 28px rgba(40,60,100,.30)}  /* 悬浮窗: fixed底部居中/宽min(640,64vw)/最高76vh/重阴影 */
+.c-grid.float-monitor h3{font-size:14px;text-align:left;padding:6px 10px;display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:move;user-select:none;touch-action:none}  /* 悬浮窗标题: 拖动手柄(move)/两端分布/禁选中/禁触摸手势 */
+.c-grid.float-monitor .gw-body{overflow:auto;min-height:0;flex:1;display:flex;flex-direction:column}  /* 悬浮窗主体: 可滚动弹性占满 */
+.c-grid.float-monitor .gw-body .tw{flex:1;min-height:0;max-height:none}  /* 主体表格容器: 弹性占满不限高 */
+.c-grid.float-monitor.min .gw-body{display:none}         /* 折叠态: 隐藏主体 */
+.c-grid.float-monitor .gmin{flex:0 0 auto;width:26px;height:22px;line-height:20px;padding:0;font-size:13px;border-radius:6px}  /* 折叠按钮: 固定小尺寸 */
 /* 悬浮窗内: 提示文字换行完整显示, 表格至少4行可见且字号清晰 */
-.c-grid.float-monitor .sline{white-space:normal;overflow:visible;text-overflow:clip;font-size:12px;line-height:1.6}
-.c-grid.float-monitor #gridT thead th{font-size:14px;padding:7px 6px}
-.c-grid.float-monitor #gridT tbody td{font-size:13px;padding:7px 6px;white-space:normal}
-.c-grid.float-monitor #gridTW{min-height:250px}
-#chart canvas{width:100%;height:100%;display:block}
-#tfs{display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap}
-.tf{cursor:pointer;border:1px solid #c9d4e4;border-radius:6px;padding:2px 12px;font-size:13px;color:#33465e;background:#fff;user-select:none}
-.tf.on{background:#2b6cb0;color:#fff;border-color:#2b6cb0;font-weight:700}
-#tip{position:absolute;display:none;pointer-events:none;background:rgba(255,255,255,.97);border:1px solid #c9d4e4;border-radius:8px;
-padding:8px 11px;font-size:12px;color:#1d2733;font-family:"Microsoft YaHei",sans-serif;box-shadow:0 4px 14px rgba(20,40,80,.18);z-index:9;line-height:1.75;white-space:nowrap}
-#tip .up{color:#d5382f}#tip .dn{color:#0a8f4e}
-#load{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:14px;color:#67788f;background:#fff;z-index:20}
-#fetch{position:absolute;right:80px;top:12px;z-index:8;font-size:12px;color:#2b6cb0;background:rgba(255,255,255,.92);
-border:1px solid #c9d4e4;border-radius:8px;padding:3px 10px;display:none;box-shadow:0 2px 8px rgba(20,40,80,.12);font-family:"Microsoft YaHei",sans-serif}
-#live{position:absolute;left:10px;top:8px;z-index:8;font-size:14px;font-weight:600;color:#1d2733;font-family:"Microsoft YaHei",sans-serif;
-background:rgba(255,255,255,.9);border:1px solid #e3e8f0;border-radius:8px;padding:3px 10px;pointer-events:none;box-shadow:0 1px 6px rgba(20,40,80,.08)}
-#live .up{color:#d5382f}#live .dn{color:#0a8f4e}
-#live small{font-size:10px;font-weight:400;color:#8795a8;margin-left:6px}
-.up{color:var(--red)}.down{color:var(--green)}.muted{color:#98a0ab}
+.c-grid.float-monitor .sline{white-space:normal;overflow:visible;text-overflow:clip;font-size:12px;line-height:1.6}  /* 窗内汇总条: 允许换行完整显示12px */
+.c-grid.float-monitor #gridT thead th{font-size:14px;padding:7px 6px}  /* 窗内表头: 缩小字号 */
+.c-grid.float-monitor #gridT tbody td{font-size:13px;padding:7px 6px;white-space:normal}  /* 窗内单元格: 13px/允许换行 */
+.c-grid.float-monitor #gridTW{min-height:250px}          /* 窗内表格容器: 最少250px(约4行) */
+#chart canvas{width:100%;height:100%;display:block}      /* K线画布: 撑满容器 */
+#tfs{display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap}  /* 周期按钮排: 弹性换行 */
+.tf{cursor:pointer;border:1px solid #c9d4e4;border-radius:6px;padding:2px 12px;font-size:13px;color:#33465e;background:#fff;user-select:none}  /* 周期按钮: 手型/灰边圆角/禁选中 */
+.tf.on{background:#2b6cb0;color:#fff;border-color:#2b6cb0;font-weight:700}  /* 选中态: 蓝底白字加粗 */
+#tip{position:absolute;display:none;pointer-events:none;background:rgba(255,255,255,.97);border:1px solid #c9d4e4;border-radius:8px;  /* 十字线悬浮窗: 绝对定位默认隐藏/白底灰边圆角 */
+padding:8px 11px;font-size:12px;color:#1d2733;font-family:"Microsoft YaHei",sans-serif;box-shadow:0 4px 14px rgba(20,40,80,.18);z-index:9;line-height:1.75;white-space:nowrap}  /* 微软雅黑12px/阴影/不挡鼠标/不换行 */
+#tip .up{color:#d5382f}#tip .dn{color:#0a8f4e}           /* 悬浮窗内涨红跌绿 */
+#load{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:14px;color:#67788f;background:#fff;z-index:20}  /* 加载遮罩: 铺满容器白底居中灰字 */
+#fetch{position:absolute;right:80px;top:12px;z-index:8;font-size:12px;color:#2b6cb0;background:rgba(255,255,255,.92);  /* 取数提示角标: 右上偏左/蓝字白底 */
+border:1px solid #c9d4e4;border-radius:8px;padding:3px 10px;display:none;box-shadow:0 2px 8px rgba(20,40,80,.12);font-family:"Microsoft YaHei",sans-serif}  /* 灰边圆角/默认隐藏 */
+#live{position:absolute;left:10px;top:8px;z-index:8;font-size:14px;font-weight:600;color:#1d2733;font-family:"Microsoft YaHei",sans-serif;  /* 实时价标签: 左上角/14px半粗深字 */
+background:rgba(255,255,255,.9);border:1px solid #e3e8f0;border-radius:8px;padding:3px 10px;pointer-events:none;box-shadow:0 1px 6px rgba(20,40,80,.08)}  /* 白底灰边圆角/不挡鼠标/轻阴影 */
+#live .up{color:#d5382f}#live .dn{color:#0a8f4e}         /* 实时价涨红跌绿 */
+#live small{font-size:10px;font-weight:400;color:#8795a8;margin-left:6px}  /* 实时价附注小字: 灰色10px */
+.up{color:var(--red)}.down{color:var(--green)}.muted{color:#98a0ab}  /* 通用涨红/跌绿/弱化灰 */

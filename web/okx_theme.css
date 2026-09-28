@@ -1,5 +1,9 @@
-/* okx_theme.css — 特殊样式: 魔法棒光标 + 星星粒子 (仅index.php加载, nqall/klineall不受影响) */
-#chart{cursor:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='60' height='60'><text y='48' font-size='48'>🪄</text></svg>") 8 48, crosshair}  /* 魔法棒放大一倍 */
-#chart canvas{cursor:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='60' height='60'><text y='48' font-size='48'>🪄</text></svg>") 8 48, crosshair}  /* 画布同步魔法棒 */
-.spark{position:absolute;pointer-events:none;font-size:36px;z-index:4;animation:spk 1.2s ease-out forwards}
-@keyframes spk{0%{transform:scale(.4);opacity:1}60%{transform:scale(1.35);opacity:.95}100%{transform:scale(.5);opacity:0}}
+/* okx_theme.css — 特殊样式: 魔法棒光标 + 星星粒子 (仅index.php加载, nqall/klineall不受影响)
+ *
+ * 【文件职责】配合 okx_theme.js 的装饰性样式: K线区魔法棒emoji光标 + 星星粒子动画。
+ * 【功能清单】1. #chart 及其 canvas 的魔法棒光标; 2. .spark 星星粒子定位与动画; 3. spk 粒子关键帧。
+ */
+#chart{cursor:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='60' height='60'><text y='48' font-size='48'>🪄</text></svg>") 8 48, crosshair}  /* 魔法棒放大一倍 */  /* K线容器光标: 60px内联SVG魔法棒emoji, 热点(8,48), 兜底crosshair */
+#chart canvas{cursor:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='60' height='60'><text y='48' font-size='48'>🪄</text></svg>") 8 48, crosshair}  /* 画布同步魔法棒 */  /* 画布光标与容器一致(避免进入canvas区域光标跳变) */
+.spark{position:absolute;pointer-events:none;font-size:36px;z-index:4;animation:spk 1.2s ease-out forwards}  /* 星星粒子: 绝对定位/不响应鼠标/36px/1.2秒缓出动画保持末帧 */
+@keyframes spk{0%{transform:scale(.4);opacity:1}60%{transform:scale(1.35);opacity:.95}100%{transform:scale(.5);opacity:0}}  /* 粒子关键帧: 放大到1.35倍再缩小淡出 */

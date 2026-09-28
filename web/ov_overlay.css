@@ -1,29 +1,33 @@
-/* ov_overlay.css — 热插拔覆盖层样式 (删除本文件+挂载行即彻底移除) */
-#ovLegend {
-  position: absolute;
-  left: 12px;
-  bottom: 36px;
-  z-index: 8;
-  font-size: 12px;
-  color: #b01212;
-  background: rgba(255, 255, 255, 0.92);
-  border: 1px solid #f3c1c1;
-  border-radius: 8px;
-  padding: 4px 10px;
-  pointer-events: auto;
-  box-shadow: 0 2px 8px rgba(120, 20, 20, 0.10);
+/* ov_overlay.css — 热插拔覆盖层样式 (删除本文件+挂载行即彻底移除)
+ *
+ * 【文件职责】力学转折覆盖层的图例(#ovLegend)与计数(#ovCnt)样式, 可整体热插拔。
+ * 【功能清单】1. #ovLegend 图例定位(图区左下角)+浅红胶囊底; 2. .ovBtn 预留按钮样式; 3. #ovCnt 计数文字。
+ */
+#ovLegend {                                              /* 覆盖层图例容器 */
+  position: absolute;                                    /* 绝对定位(锚定在#chart内) */
+  left: 12px;                                            /* 距左12px */
+  bottom: 36px;                                          /* 距底36px(避开副图轴区) */
+  z-index: 8;                                            /* 层级: 在K线上方、悬浮窗之下 */
+  font-size: 12px;                                       /* 小号文字 */
+  color: #b01212;                                        /* 暗红文字 */
+  background: rgba(255, 255, 255, 0.92);                 /* 半透明白底 */
+  border: 1px solid #f3c1c1;                             /* 浅红边框 */
+  border-radius: 8px;                                    /* 圆角8px */
+  padding: 4px 10px;                                     /* 内边距 */
+  pointer-events: auto;                                  /* 可响应鼠标(可选中复制) */
+  box-shadow: 0 2px 8px rgba(120, 20, 20, 0.10);         /* 轻红阴影 */
 }
-#ovLegend .ovBtn {
-  display: inline-block;
-  margin-left: 8px;
-  padding: 1px 8px;
-  border: 1px solid #e8a0a0;
-  border-radius: 6px;
-  background: #fff;
-  color: #b01212;
-  font-weight: bold;
-  cursor: pointer;
-  user-select: none;
+#ovLegend .ovBtn {                                       /* 图例内预留按钮 */
+  display: inline-block;                                 /* 行内块 */
+  margin-left: 8px;                                      /* 左间距8px */
+  padding: 1px 8px;                                      /* 胶囊内边距 */
+  border: 1px solid #e8a0a0;                             /* 浅红边 */
+  border-radius: 6px;                                    /* 圆角 */
+  background: #fff;                                      /* 白底 */
+  color: #b01212;                                        /* 暗红字 */
+  font-weight: bold;                                     /* 加粗 */
+  cursor: pointer;                                       /* 手型 */
+  user-select: none;                                     /* 禁选中 */
 }
-#ovLegend .ovBtn:hover { background: #fdeeee; }
-#ovCnt { margin-left: 8px; color: #67788f; }
+#ovLegend .ovBtn:hover { background: #fdeeee; }          /* 按钮悬停: 极浅红底 */
+#ovCnt { margin-left: 8px; color: #67788f; }             /* 转折计数: 左间距8/灰蓝色字 */

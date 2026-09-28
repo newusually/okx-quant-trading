@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- XAMPP 静默安装应答文件 (setup.bat 第 1 步引用) -->
+<unattend>
+  <param name="mode" value="unattended"/>
+  <param name="prefix" value="E:\xampp"/>
+  <param name="sevenZip" value="disabled"/>
+  <param name="launchAppAfterFinish" value="false"/>
+  <param name="dontStartApache" value="true"/>
+  <param name="dontStartMySQL" value="true"/>
+</unattend>

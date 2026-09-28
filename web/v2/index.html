@@ -1,441 +1,460 @@
-<!DOCTYPE html>
-<html lang="zh-CN" data-page-node-id="0Vooqs7pGDbFaCPs7GjC8H">
-<head data-page-node-id="HQcGVD6Xzuq7dxL0p3HEID">
-<meta charset="UTF-8" data-page-node-id="J2YyJ1rY2KwE2edPVLW9da">
-<meta name="viewport" content="width=device-width,initial-scale=1" data-page-node-id="awOG277ERgo1WB6hfNjhvN">
-<title>OKX 量化终端 · C++ 内核</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E%F0%9F%93%88%3C/text%3E%3C/svg%3E">
-<link rel="stylesheet" href="assets/tw.css?v=0928v16" data-page-node-id="3JApKl4hjvMGFgdBVZMY4E">
-</head>
-<body class="bg-ink-900 font-sans text-txt-1 antialiased" data-page-node-id="7vHEE9GU2PlGczbawrJ7oi">
-<div id="app" v-cloak data-page-node-id="VIFgFszsznboxgzvoHYul5">
+<!DOCTYPE html> <!-- 文档类型声明(HTML5) -->
+<!-- ============================================================
+  index.html — OKX 量化终端 v2 面板骨架 (Vue3 模板)
+  文件职责: 整个单页应用的 DOM 骨架 + Vue3 绑定模板, 无任何业务计算。
+  功能清单:
+    1) 顶栏: Logo / 合约选择下拉(搜索+最近交易) / 周期切换 / 时钟与池状态 /
+       自动刷新开关 / 手动刷新按钮 / 9 格核心指标条(盈亏/胜率/持仓/资金费/守护)
+    2) 工具栏: 绘图工具(趋势线/水平线/矩形/斐波那契等) + 画线颜色/撤销/清空 +
+       主图指标(MA/EMA/BOLL) + 副图指标(VOL/MACD/RSI/KDJ) + 显示开关
+    3) K线卡片: 实时价图例(随 ticker 跳动) / 悬停 OHLC 浮窗 / 图表容器 /
+       图例说明("5m+3m 金▲共振开仓" "跌时 3m 金▲" "+2% 止盈")
+    4) 流水卡片: 实时监测(持仓卡片/止盈进度条) + 交易流水表格 + 信号明细/
+       算法转折点双表(KE=½mv² 动能说明)
+    5) 右侧栏: 加仓触发日志 / 守护状态 / 风控铁律参数
+    6) 设置抽屉: 图表样式/主图均线/布林带/副图指标/显示项/绘图工具
+    7) 页脚数据源说明 + 版本号 v16(资源 ?v=0928v16 缓存戳)
+  【铁律】本文件是 Vue3 模板: 所有绑定表达式(含 sgnCls/dirCls/profitCls/
+  pctlCls/isGold/goldN 等方法调用)绝不改动; 比较运算符一律在 JS 方法内,
+  模板绑定里禁止出现裸的比较表达式注入; 注释一律加在行尾且不破坏标签。
+============================================================ -->
+<html lang="zh-CN" data-page-node-id="0Vooqs7pGDbFaCPs7GjC8H"> <!-- 根元素: 中文页面 -->
+<head data-page-node-id="HQcGVD6Xzuq7dxL0p3HEID"> <!-- 头部开始 -->
+<meta charset="UTF-8" data-page-node-id="J2YyJ1rY2KwE2edPVLW9da"> <!-- 字符集 UTF-8 -->
+<meta name="viewport" content="width=device-width,initial-scale=1" data-page-node-id="awOG277ERgo1WB6hfNjhvN"> <!-- 移动端视口适配 -->
+<title>OKX 量化终端 · C++ 内核</title> <!-- 页签标题 -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E%F0%9F%93%88%3C/text%3E%3C/svg%3E"> <!-- 内联 SVG 站点图标(📈) -->
+<link rel="stylesheet" href="assets/tw.css?v=0928v16" data-page-node-id="3JApKl4hjvMGFgdBVZMY4E"> <!-- Tailwind 编译产物(v16 版本戳控制缓存) -->
+</head> <!-- 头部结束 -->
+<body class="bg-ink-900 font-sans text-txt-1 antialiased" data-page-node-id="7vHEE9GU2PlGczbawrJ7oi"> <!-- 深色底/默认字体/正文色/抗锯齿 -->
+<div id="app" v-cloak data-page-node-id="VIFgFszsznboxgzvoHYul5"> <!-- Vue 挂载根节点; v-cloak 防止编译前模板闪烁 -->
 
   <!-- ═══════════ 顶栏 ═══════════ -->
-  <header class="sticky top-0 z-40 border-b border-ink-600 bg-ink-900/90 backdrop-blur-md" data-page-node-id="HG9cNh4lQWx2XioBWzJbCo">
-    <div class="flex h-14 items-center gap-3 px-3" data-page-node-id="zy8HmNCXzfts7D4o05qpSZ">
+  <header class="sticky top-0 z-40 border-b border-ink-600 bg-ink-900/90 backdrop-blur-md" data-page-node-id="HG9cNh4lQWx2XioBWzJbCo"> <!-- 吸顶顶栏(半透明毛玻璃) -->
+    <div class="flex h-14 items-center gap-3 px-3" data-page-node-id="zy8HmNCXzfts7D4o05qpSZ"> <!-- 顶栏第一行(高56px 水平排列) -->
       <!-- Logo -->
-      <div class="flex shrink-0 items-center gap-2" data-page-node-id="p9Tn9sXGgAGOmopGbvk0TV">
-        <div class="grid h-8 w-8 place-items-center rounded-lg bg-gradient-to-br from-gold/90 to-goldsoft/70 text-[15px] shadow-glow" data-page-node-id="c7IMz6MhlCtvpfwEk26HJs">📈</div>
-        <div class="hidden leading-tight sm:block" data-page-node-id="6087itnmob5v0BEosXY9ea">
-          <div class="text-[13px] font-bold tracking-wide" data-page-node-id="CevfDao16GVmXpW0AJmiYx">OKX 量化终端</div>
-          <div class="text-3xs text-txt-4" data-page-node-id="Y5I25tgAcCPaFGwF8cSshd">C++ 内核 · 零 PHP 计算</div>
+      <div class="flex shrink-0 items-center gap-2" data-page-node-id="p9Tn9sXGgAGOmopGbvk0TV"> <!-- Logo 容器(不收缩) -->
+        <div class="grid h-8 w-8 place-items-center rounded-lg bg-gradient-to-br from-gold/90 to-goldsoft/70 text-[15px] shadow-glow" data-page-node-id="c7IMz6MhlCtvpfwEk26HJs">📈</div> <!-- 金色渐变图标块 -->
+        <div class="hidden leading-tight sm:block" data-page-node-id="6087itnmob5v0BEosXY9ea"> <!-- 标题文字(小屏隐藏) -->
+          <div class="text-[13px] font-bold tracking-wide" data-page-node-id="CevfDao16GVmXpW0AJmiYx">OKX 量化终端</div> <!-- 主标题 -->
+          <div class="text-3xs text-txt-4" data-page-node-id="Y5I25tgAcCPaFGwF8cSshd">C++ 内核 · 零 PHP 计算</div> <!-- 副标题(架构说明) -->
         </div>
       </div>
 
       <!-- 合约选择器 -->
-      <div class="relative" style="min-width:190px" data-page-node-id="fGsOhcODnoWJ446DLPFEEB">
-        <button @click="dropOpen=!dropOpen" class="flex w-full items-center gap-2 rounded-lg border border-ink-600 bg-ink-800 px-2.5 py-1.5 text-left transition-colors hover:border-ink-500" data-page-node-id="qjJ6yrPifSy1TsFoDJlVmi">
-          <span class="text-[12px] font-bold" data-page-node-id="WSFtdoGB6cvQzKWepFD2C4">{{ sym.short || '选择合约' }}</span>
-          <span class="num text-2xs text-txt-4" data-page-node-id="9I4psABrWVX4oX67CMTXNM">{{ sym.px ? fmtPx(sym.px) : '' }}</span>
-          <span class="flex-1" data-page-node-id="HaJuR0PWI24MzNEvelULH7"></span>
-          <svg class="h-3 w-3 text-txt-4 transition-transform" :class="dropOpen?'rotate-180':''" viewBox="0 0 12 12" fill="currentColor" data-page-node-id="pZR7nHHVIIH8Z7mIojsjqs"><path d="M6 8.5 1.5 4h9z" data-page-node-id="DVBdAZn5a52ZEdM8TmHfCQ"/></svg>
+      <div class="relative" style="min-width:190px" data-page-node-id="fGsOhcODnoWJ446DLPFEEB"> <!-- 下拉锚点容器(相对定位) -->
+        <button @click="dropOpen=!dropOpen" class="flex w-full items-center gap-2 rounded-lg border border-ink-600 bg-ink-800 px-2.5 py-1.5 text-left transition-colors hover:border-ink-500" data-page-node-id="qjJ6yrPifSy1TsFoDJlVmi"> <!-- 触发按钮: 点击翻转下拉开关 -->
+          <span class="text-[12px] font-bold" data-page-node-id="WSFtdoGB6cvQzKWepFD2C4">{{ sym.short || '选择合约' }}</span> <!-- 当前合约短名(空则提示) -->
+          <span class="num text-2xs text-txt-4" data-page-node-id="9I4psABrWVX4oX67CMTXNM">{{ sym.px ? fmtPx(sym.px) : '' }}</span> <!-- 当前价(等宽数字) -->
+          <span class="flex-1" data-page-node-id="HaJuR0PWI24MzNEvelULH7"></span> <!-- 弹性占位(把箭头推到右侧) -->
+          <svg class="h-3 w-3 text-txt-4 transition-transform" :class="dropOpen?'rotate-180':''" viewBox="0 0 12 12" fill="currentColor" data-page-node-id="pZR7nHHVIIH8Z7mIojsjqs"><path d="M6 8.5 1.5 4h9z" data-page-node-id="DVBdAZn5a52ZEdM8TmHfCQ"/></svg> <!-- 下拉小三角(展开时旋转180度) -->
         </button>
-        <div v-if="dropOpen" class="absolute left-0 top-[calc(100%+6px)] z-50 w-[300px] animate-slidein overflow-hidden rounded-xl border border-ink-600 bg-ink-800 shadow-card" data-page-node-id="q6dGuYQkwHDsBguEDfNlq6">
-          <div class="border-b border-ink-600 p-2" data-page-node-id="WurPvfCk68nw7Cdcl0LHHr">
-            <input v-model="q" @keydown.esc="dropOpen=false" placeholder="搜索合约 / 中文名…" class="w-full rounded-lg border border-ink-600 bg-ink-900 px-2.5 py-1.5 text-[12px] outline-none placeholder:text-txt-4 focus:border-gold/50" data-page-node-id="CeX9YF8VPv0V6hlq6iW3DG">
+        <div v-if="dropOpen" class="absolute left-0 top-[calc(100%+6px)] z-50 w-[300px] animate-slidein overflow-hidden rounded-xl border border-ink-600 bg-ink-800 shadow-card" data-page-node-id="q6dGuYQkwHDsBguEDfNlq6"> <!-- 下拉面板(展开时滑入动画) -->
+          <div class="border-b border-ink-600 p-2" data-page-node-id="WurPvfCk68nw7Cdcl0LHHr"> <!-- 搜索区 -->
+            <input v-model="q" @keydown.esc="dropOpen=false" placeholder="搜索合约 / 中文名…" class="w-full rounded-lg border border-ink-600 bg-ink-900 px-2.5 py-1.5 text-[12px] outline-none placeholder:text-txt-4 focus:border-gold/50" data-page-node-id="CeX9YF8VPv0V6hlq6iW3DG"> <!-- 合约搜索框(Esc 关闭下拉) -->
           </div>
-          <div class="max-h-[320px] overflow-y-auto p-1" data-page-node-id="TYtF9gbzuCHTNMLVyk0EQT">
-            <div v-for="g in dropGroups" :key="g.name" data-page-node-id="LAuAV976FENkdsHGP5QikD">
-              <div class="px-2 py-1 text-3xs font-semibold uppercase tracking-wider text-txt-4" data-page-node-id="MhFVNOkuDRc1gCeMM0FT5O">{{ g.name }}</div>
-              <button v-for="s in g.list" :key="s" @click="pick(s)" class="row w-full text-left" :class="s===inst?'row-on':''" data-page-node-id="a75oMCbJwphKnY3zh7IZBB">
-                <span class="h-1.5 w-1.5 shrink-0 rounded-full" :class="s===inst?'bg-gold':'bg-ink-500'" data-page-node-id="u8PT5JXz5BlA7byJvRAELv"></span>
-                <span class="truncate font-semibold" data-page-node-id="IgQmmlqrx2Fw6pRuXWUJlN">{{ short(s) }}</span>
+          <div class="max-h-[320px] overflow-y-auto p-1" data-page-node-id="TYtF9gbzuCHTNMLVyk0EQT"> <!-- 列表区(限高滚动) -->
+            <div v-for="g in dropGroups" :key="g.name" data-page-node-id="LAuAV976FENkdsHGP5QikD"> <!-- 按分组循环(最近交易/全部合约) -->
+              <div class="px-2 py-1 text-3xs font-semibold uppercase tracking-wider text-txt-4" data-page-node-id="MhFVNOkuDRc1gCeMM0FT5O">{{ g.name }}</div> <!-- 分组标题 -->
+              <button v-for="s in g.list" :key="s" @click="pick(s)" class="row w-full text-left" :class="s===inst?'row-on':''" data-page-node-id="a75oMCbJwphKnY3zh7IZBB"> <!-- 合约行: 点击切图, 当前项高亮 -->
+                <span class="h-1.5 w-1.5 shrink-0 rounded-full" :class="s===inst?'bg-gold':'bg-ink-500'" data-page-node-id="u8PT5JXz5BlA7byJvRAELv"></span> <!-- 选中圆点(金色) -->
+                <span class="truncate font-semibold" data-page-node-id="IgQmmlqrx2Fw6pRuXWUJlN">{{ short(s) }}</span> <!-- 合约短名(超长截断) -->
               </button>
             </div>
-            <div v-if="!dropGroups.length" class="px-2 py-6 text-center text-2xs text-txt-4" data-page-node-id="zbbmyg2Ssbq1qvU21l8mOm">无匹配合约</div>
+            <div v-if="!dropGroups.length" class="px-2 py-6 text-center text-2xs text-txt-4" data-page-node-id="zbbmyg2Ssbq1qvU21l8mOm">无匹配合约</div> <!-- 搜索无结果提示 -->
           </div>
         </div>
       </div>
 
       <!-- 周期 -->
-      <div class="hidden items-center gap-0.5 rounded-lg border border-ink-600 bg-ink-800 p-0.5 md:flex" data-page-node-id="nhUwTy6zAdK8VX4BFZ8Zxa">
-        <span v-for="t in TFS" :key="t" @click="setTf(t)" class="tab" :class="tf===t?'tab-on':''" data-page-node-id="dPGRwTaDDsI3z8YFFHbgKN">{{ t }}</span>
+      <div class="hidden items-center gap-0.5 rounded-lg border border-ink-600 bg-ink-800 p-0.5 md:flex" data-page-node-id="nhUwTy6zAdK8VX4BFZ8Zxa"> <!-- 顶栏周期切换条(中屏起显示) -->
+        <span v-for="t in TFS" :key="t" @click="setTf(t)" class="tab" :class="tf===t?'tab-on':''" data-page-node-id="dPGRwTaDDsI3z8YFFHbgKN">{{ t }}</span> <!-- 周期页签: 点击切换, 当前高亮 -->
       </div>
 
       <!-- 图层开关已移至图表工具栏 -->
 
-      <span class="flex-1" data-page-node-id="X4en7NSb18s9JPzf9vTJQd"></span>
+      <span class="flex-1" data-page-node-id="X4en7NSb18s9JPzf9vTJQd"></span> <!-- 弹性占位(把右侧状态推到最右) -->
 
       <!-- 状态 -->
-      <div class="hidden items-center gap-2 text-2xs text-txt-3 xl:flex" data-page-node-id="SUDAuuE7b0SdGuuUcdCXgD">
-        <span class="num" data-page-node-id="QGmLyJtXHpujEouCqyPz81">{{ clock }}</span>
-        <span class="h-3 w-px bg-ink-600" data-page-node-id="5HeqN38bZGGADDTANVHnIf"></span>
-        <span data-page-node-id="nGTY6jDdERVE0haGgNLquz">池 <b class="num text-txt-2" data-page-node-id="CcJbPkRtBU4twzqCL3IbOK">{{ syms.length }}</b></span>
-        <span class="h-3 w-px bg-ink-600" data-page-node-id="eQc9uV9fxrOSSEYOuSRBiF"></span>
-        <span data-page-node-id="N4jx3HfTkkHAg3rkNLS2CT">K线 <b class="num" :class="lagMin<=5?'text-dn':'text-gold'" data-page-node-id="DO7fbSTaQ7ByKVF1Az13bS">{{ lagMin }}m</b></span>
+      <div class="hidden items-center gap-2 text-2xs text-txt-3 xl:flex" data-page-node-id="SUDAuuE7b0SdGuuUcdCXgD"> <!-- 状态区(宽屏显示) -->
+        <span class="num" data-page-node-id="QGmLyJtXHpujEouCqyPz81">{{ clock }}</span> <!-- 实时时钟(1s 更新) -->
+        <span class="h-3 w-px bg-ink-600" data-page-node-id="5HeqN38bZGGADDTANVHnIf"></span> <!-- 竖分隔线 -->
+        <span data-page-node-id="nGTY6jDdERVE0haGgNLquz">池 <b class="num text-txt-2" data-page-node-id="CcJbPkRtBU4twzqCL3IbOK">{{ syms.length }}</b></span> <!-- 合约池数量 -->
+        <span class="h-3 w-px bg-ink-600" data-page-node-id="eQc9uV9fxrOSSEYOuSRBiF"></span> <!-- 竖分隔线 -->
+        <span data-page-node-id="N4jx3HfTkkHAg3rkNLS2CT">K线 <b class="num" :class="lagMin<=5?'text-dn':'text-gold'" data-page-node-id="DO7fbSTaQ7ByKVF1Az13bS">{{ lagMin }}m</b></span> <!-- 数据滞后分钟(≤5绿否则金) -->
       </div>
 
       <!-- 自动刷新 -->
-      <button @click="auto=!auto" class="btn" :class="auto?'btn-on':''" :title="auto?'自动刷新中':'已暂停'" data-page-node-id="QJHrtFujg55d4OfDqBZYAi">
-        <span class="h-1.5 w-1.5 rounded-full" :class="auto?'animate-pulse2 bg-gold':'bg-txt-4'" data-page-node-id="iJq2qSFGuidsL5F9U0QFir"></span>{{ auto?'自动':'暂停' }}
+      <button @click="auto=!auto" class="btn" :class="auto?'btn-on':''" :title="auto?'自动刷新中':'已暂停'" data-page-node-id="QJHrtFujg55d4OfDqBZYAi"> <!-- 自动刷新总开关 -->
+        <span class="h-1.5 w-1.5 rounded-full" :class="auto?'animate-pulse2 bg-gold':'bg-txt-4'" data-page-node-id="iJq2qSFGuidsL5F9U0QFir"></span>{{ auto?'自动':'暂停' }} <!-- 状态灯+文案 -->
       </button>
-      <button @click="refreshAll(true)" class="btn" title="立即刷新" data-page-node-id="uWKULDdrza9aNTFp7crLS5">
-        <svg class="h-3 w-3" :class="busy?'animate-spin':''" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" data-page-node-id="IeH4sAxENWpUo1bAdNGvfF"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 2v3.2h-3.2" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="pPYOJNXLTEHS8DHBf2LZu1"/></svg>
+      <button @click="refreshAll(true)" class="btn" title="立即刷新" data-page-node-id="uWKULDdrza9aNTFp7crLS5"> <!-- 手动全量刷新按钮 -->
+        <svg class="h-3 w-3" :class="busy?'animate-spin':''" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" data-page-node-id="IeH4sAxENWpUo1bAdNGvfF"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 2v3.2h-3.2" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="pPYOJNXLTEHS8DHBf2LZu1"/></svg> <!-- 刷新图标(请求中旋转) -->
         刷新
       </button>
     </div>
 
     <!-- 指标条 -->
-    <div class="grid grid-cols-2 gap-px border-t border-ink-600/60 bg-ink-600/60 sm:grid-cols-3 lg:grid-cols-6 xl:grid-cols-9" data-page-node-id="lYlCQk9Fs9jkVlFhiG7MXB">
-      <div v-for="m in metrics" :key="m.k" class="bg-ink-850 px-3 py-1.5" data-page-node-id="fHgDgu6QdB6YmxXMD1MRDF">
-        <div class="text-3xs text-txt-4" data-page-node-id="Ctm7hdjEwZpJsM7x4MlVdj">{{ m.k }}</div>
-        <div class="num text-[13px] font-bold leading-tight" :class="m.c" data-page-node-id="DBcGz7Y9O9B765bGYEIuf5">{{ m.v }}</div>
+    <div class="grid grid-cols-2 gap-px border-t border-ink-600/60 bg-ink-600/60 sm:grid-cols-3 lg:grid-cols-6 xl:grid-cols-9" data-page-node-id="lYlCQk9Fs9jkVlFhiG7MXB"> <!-- 指标条网格(响应式 2/3/6/9 列) -->
+      <div v-for="m in metrics" :key="m.k" class="bg-ink-850 px-3 py-1.5" data-page-node-id="fHgDgu6QdB6YmxXMD1MRDF"> <!-- 指标格循环 -->
+        <div class="text-3xs text-txt-4" data-page-node-id="Ctm7hdjEwZpJsM7x4MlVdj">{{ m.k }}</div> <!-- 指标标题 -->
+        <div class="num text-[13px] font-bold leading-tight" :class="m.c" data-page-node-id="DBcGz7Y9O9B765bGYEIuf5">{{ m.v }}</div> <!-- 指标值(带涨跌色) -->
       </div>
-      <div class="bg-ink-850 px-3 py-1.5" data-page-node-id="EXmEbURozMtViRNkvZBlYv">
-        <div class="text-3xs text-txt-4" data-page-node-id="ql1VdWDflE9qd6H6vX1JTG">守护</div>
-        <div class="flex items-center gap-1" data-page-node-id="ZoiIBrfpsWifQCZ0qdyvAz">
-          <span class="h-1.5 w-1.5 rounded-full" :class="guardBad?'bg-dn animate-pulse2':'bg-up'" data-page-node-id="G6fqdVomFrzVxRA5E8jS9s"></span>
-          <span class="num text-[13px] font-bold" :class="guardBad?'text-dn':'text-up'" data-page-node-id="eXnH9noqeYqUQ8pO73GnJW">{{ guardOk }}/{{ guardN }}</span>
+      <div class="bg-ink-850 px-3 py-1.5" data-page-node-id="EXmEbURozMtViRNkvZBlYv"> <!-- 守护格(固定最后一格) -->
+        <div class="text-3xs text-txt-4" data-page-node-id="ql1VdWDflE9qd6H6vX1JTG">守护</div> <!-- 标题 -->
+        <div class="flex items-center gap-1" data-page-node-id="ZoiIBrfpsWifQCZ0qdyvAz"> <!-- 内容行 -->
+          <span class="h-1.5 w-1.5 rounded-full" :class="guardBad?'bg-dn animate-pulse2':'bg-up'" data-page-node-id="G6fqdVomFrzVxRA5E8jS9s"></span> <!-- 全活绿灯闪烁 -->
+          <span class="num text-[13px] font-bold" :class="guardBad?'text-dn':'text-up'" data-page-node-id="eXnH9noqeYqUQ8pO73GnJW">{{ guardOk }}/{{ guardN }}</span> <!-- 存活/总数 -->
         </div>
       </div>
     </div>
   </header>
 
   <!-- ═══════════ 主体 ═══════════ -->
-  <main class="grid grid-cols-1 gap-3 p-3 xl:grid-cols-[minmax(0,1fr)_338px]" data-page-node-id="kJge1xXZ7rCUxBbUOHCquM">
+  <main class="grid grid-cols-1 gap-3 p-3 xl:grid-cols-[minmax(0,1fr)_338px]" data-page-node-id="kJge1xXZ7rCUxBbUOHCquM"> <!-- 主体两栏(宽屏左自适应+右338px) -->
 
     <!-- ── 主列：K线 → 实时监测 → 交易流水 → 信号明细 ── -->
-    <section class="flex min-w-0 flex-col gap-3" data-page-node-id="efrZOTnls72akdAaY6ZoKf">
-      <div class="card overflow-hidden" data-page-node-id="C6vmlGLQM1Ohzr1jSeApg8">
+    <section class="flex min-w-0 flex-col gap-3" data-page-node-id="efrZOTnls72akdAaY6ZoKf"> <!-- 主列纵向排列 -->
+      <div class="card overflow-hidden" data-page-node-id="C6vmlGLQM1Ohzr1jSeApg8"> <!-- K线卡片容器 -->
         <!-- 图表头 -->
-        <div class="flex flex-wrap items-center gap-2 border-b border-ink-600 px-3 py-2" data-page-node-id="FHuSTjF3HI3NP9TaagIeOo">
-          <div class="flex items-center gap-2" data-page-node-id="mD7MZxc1OAFFa0NRBYozXD">
-            <span class="text-[15px] font-bold tracking-wide" data-page-node-id="W56uelJjaiiEDYX8zUcwE6">{{ sym.short || short(inst) }}</span>
-            <span :key="live.n" class="num rounded px-1 text-[20px] font-bold leading-none" :class="liveFlash" data-page-node-id="frid1UqKy9OirtRenX9usy">{{ live.px ? fmtPx(live.px) : '--' }}</span>
+        <div class="flex flex-wrap items-center gap-2 border-b border-ink-600 px-3 py-2" data-page-node-id="FHuSTjF3HI3NP9TaagIeOo"> <!-- 图表头(可换行) -->
+          <div class="flex items-center gap-2" data-page-node-id="mD7MZxc1OAFFa0NRBYozXD"> <!-- 左侧行情区 -->
+            <span class="text-[15px] font-bold tracking-wide" data-page-node-id="W56uelJjaiiEDYX8zUcwE6">{{ sym.short || short(inst) }}</span> <!-- 合约短名 -->
+            <span :key="live.n" class="num rounded px-1 text-[20px] font-bold leading-none" :class="liveFlash" data-page-node-id="frid1UqKy9OirtRenX9usy">{{ live.px ? fmtPx(live.px) : '--' }}</span> <!-- 实时大字价(变动触发闪光动画) -->
             <!-- 涨跌双箭头(跳动侧亮起) -->
-            <span class="flex flex-col leading-[8px] text-[10px]" data-page-node-id="gjAXwbFGELI816x31RQqqD">
-              <span :class="dirCls(live.dir)">▲</span>
-              <span :class="live.dir<0?'text-dn animate-arrowpop':'text-ink-500'" data-page-node-id="91yI3M8Cp0mcMStHt3X4nK">▼</span>
+            <span class="flex flex-col leading-[8px] text-[10px]" data-page-node-id="gjAXwbFGELI816x31RQqqD"> <!-- 上下箭头组 -->
+              <span :class="dirCls(live.dir)">▲</span> <!-- 上箭头(涨时弹跳) -->
+              <span :class="live.dir<0?'text-dn animate-arrowpop':'text-ink-500'" data-page-node-id="91yI3M8Cp0mcMStHt3X4nK">▼</span> <!-- 下箭头(跌时弹跳) -->
             </span>
-            <span class="num badge" :class="liveBadge" data-page-node-id="JnjGkzZ5HNksS44jCPOd7h">{{ live.chg>=0?'+':'' }}{{ live.chg.toFixed(2) }}%</span>
-            <span class="num text-[12px] font-semibold" :class="sgnCls(live.chg)">{{ live.amt }}</span>
-            <span v-if="live.px" class="flex items-center gap-1 rounded-md border border-dn/30 bg-dn/10 px-1.5 py-0.5 text-3xs text-dn" :title="'1.5 秒实时刷新 · 本次已更新 ' + live.n + ' 次'" data-page-node-id="SjTYmhF6erLayCKapstRGp">
-              <span class="h-1 w-1 animate-pulse2 rounded-full bg-dn" data-page-node-id="ScTY98uTahCG0dkpWCR3IJ"></span>实时 {{ live.n }}
+            <span class="num badge" :class="liveBadge" data-page-node-id="JnjGkzZ5HNksS44jCPOd7h">{{ live.chg>=0?'+':'' }}{{ live.chg.toFixed(2) }}%</span> <!-- 涨跌幅徽章 -->
+            <span class="num text-[12px] font-semibold" :class="sgnCls(live.chg)">{{ live.amt }}</span> <!-- 价差金额(红涨绿跌) -->
+            <span v-if="live.px" class="flex items-center gap-1 rounded-md border border-dn/30 bg-dn/10 px-1.5 py-0.5 text-3xs text-dn" :title="'1.5 秒实时刷新 · 本次已更新 ' + live.n + ' 次'" data-page-node-id="SjTYmhF6erLayCKapstRGp"> <!-- 实时刷新自检徽章 -->
+              <span class="h-1 w-1 animate-pulse2 rounded-full bg-dn" data-page-node-id="ScTY98uTahCG0dkpWCR3IJ"></span>实时 {{ live.n }} <!-- 呼吸灯+更新次数 -->
             </span>
-            <span v-if="live.kt" class="flex items-center gap-1 rounded-md border border-up/40 bg-up/10 px-1.5 py-0.5 text-3xs text-up" :title="'K线 3 秒增量刷新 · 成功 ' + live.kt + ' 次 · 新周期根 ' + live.app + ' 个'" data-page-node-id="T1AmaFW6qrmP046hCAPfx0">
-              <span class="h-1 w-1 animate-pulse2 rounded-full bg-up" data-page-node-id="jHzfP6O0ZjfLGHQUB8IyNY"></span>K线 {{ live.kt }}<template v-if="live.app" data-page-node-id="5rfQ1TO23OXZsTrExBHQIg"> · 新根 {{ live.app }}</template>
+            <span v-if="live.kt" class="flex items-center gap-1 rounded-md border border-up/40 bg-up/10 px-1.5 py-0.5 text-3xs text-up" :title="'K线 3 秒增量刷新 · 成功 ' + live.kt + ' 次 · 新周期根 ' + live.app + ' 个'" data-page-node-id="T1AmaFW6qrmP046hCAPfx0"> <!-- K线尾部轮询自检徽章 -->
+              <span class="h-1 w-1 animate-pulse2 rounded-full bg-up" data-page-node-id="jHzfP6O0ZjfLGHQUB8IyNY"></span>K线 {{ live.kt }}<template v-if="live.app" data-page-node-id="5rfQ1TO23OXZsTrExBHQIg"> · 新根 {{ live.app }}</template> <!-- 成功次数与新增根数 -->
             </span>
           </div>
-          <span class="flex-1" data-page-node-id="Kp14NGexkxJn9pRTmEq0PP"></span>
+          <span class="flex-1" data-page-node-id="Kp14NGexkxJn9pRTmEq0PP"></span> <!-- 弹性占位 -->
           <!-- 已加载根数 / 历史状态 -->
-          <span class="badge border-ink-600 bg-ink-750 text-txt-3" :title="'当前图内已加载 ' + rows.length + ' 根K线 · 拖到最左自动加载更早数据'" data-page-node-id="TLj0qEl3lngo0GgahX0IOU">
-            <span v-if="hloading" class="h-1 w-1 animate-pulse2 rounded-full bg-gold" data-page-node-id="qIdNgwMrGCnZweEcDo6AyJ"></span>
-            {{ rows.length }} 根<template v-if="hcount" data-page-node-id="v3pdTuEeU22nuxpPu1Oojc"> · +{{ hcount }}</template>
+          <span class="badge border-ink-600 bg-ink-750 text-txt-3" :title="'当前图内已加载 ' + rows.length + ' 根K线 · 拖到最左自动加载更早数据'" data-page-node-id="TLj0qEl3lngo0GgahX0IOU"> <!-- 已加载根数徽章 -->
+            <span v-if="hloading" class="h-1 w-1 animate-pulse2 rounded-full bg-gold" data-page-node-id="qIdNgwMrGCnZweEcDo6AyJ"></span> <!-- 拉取历史中的呼吸灯 -->
+            {{ rows.length }} 根<template v-if="hcount" data-page-node-id="v3pdTuEeU22nuxpPu1Oojc"> · +{{ hcount }}</template> <!-- 总根数与额外加载量 -->
           </span>
-          <span v-if="hend" class="badge border-ink-600 bg-ink-750 text-txt-4" data-page-node-id="nRHI7Qw2aZTdndvPPN9HUr">已到最早</span>
+          <span v-if="hend" class="badge border-ink-600 bg-ink-750 text-txt-4" data-page-node-id="nRHI7Qw2aZTdndvPPN9HUr">已到最早</span> <!-- 历史拉尽提示 -->
           <!-- 周期 -->
-          <div class="flex items-center gap-0.5 rounded-lg border border-ink-600 bg-ink-750 p-0.5" data-page-node-id="6zZyfc0HrhbzFzwozTUz33">
-            <span v-for="t in TFS" :key="t" @click="setTf(t)" class="tab" :class="tf===t?'tab-on':''" data-page-node-id="fxTiZvAljkQk2buA3yjWdy">{{ t }}</span>
+          <div class="flex items-center gap-0.5 rounded-lg border border-ink-600 bg-ink-750 p-0.5" data-page-node-id="6zZyfc0HrhbzFzwozTUz33"> <!-- 图头周期切换条 -->
+            <span v-for="t in TFS" :key="t" @click="setTf(t)" class="tab" :class="tf===t?'tab-on':''" data-page-node-id="fxTiZvAljkQk2buA3yjWdy">{{ t }}</span> <!-- 周期页签 -->
           </div>
           <!-- 根数(初始可视根数) -->
-          <select v-model.number="nvis" @change="loadKline();loadSignals()" class="sel" data-page-node-id="W1pfngdKHWrCkepB5ydhTI">
-            <option v-for="n in NS" :key="n" :value="n" data-page-node-id="1E2A9cAlFFbERA3XxmblGr">{{ n }} 根</option>
+          <select v-model.number="nvis" @change="loadKline();loadSignals()" class="sel" data-page-node-id="W1pfngdKHWrCkepB5ydhTI"> <!-- 根数下拉(变更即重拉) -->
+            <option v-for="n in NS" :key="n" :value="n" data-page-node-id="1E2A9cAlFFbERA3XxmblGr">{{ n }} 根</option> <!-- 根数选项 -->
           </select>
-          <button @click="fitChart()" class="ico-btn" title="适应宽度" data-page-node-id="nX9bXWEo680Z8zAhZVigqJ">⤢</button>
-          <button @click="toLatest()" class="ico-btn" title="回到最新" data-page-node-id="UzMINeAJUDu0B4m58lGHwC">⏭</button>
-          <button @click="setOpen=!setOpen" class="btn" :class="setOpen?'btn-on':''" title="图表设置 / 指标参数" data-page-node-id="hdt7FpVudnlkGAq2Xf34dG">⚙ 设置</button>
+          <button @click="fitChart()" class="ico-btn" title="适应宽度" data-page-node-id="nX9bXWEo680Z8zAhZVigqJ">⤢</button> <!-- 适应宽度按钮 -->
+          <button @click="toLatest()" class="ico-btn" title="回到最新" data-page-node-id="UzMINeAJUDu0B4m58lGHwC">⏭</button> <!-- 回到最新按钮 -->
+          <button @click="setOpen=!setOpen" class="btn" :class="setOpen?'btn-on':''" title="图表设置 / 指标参数" data-page-node-id="hdt7FpVudnlkGAq2Xf34dG">⚙ 设置</button> <!-- 设置抽屉开关 -->
         </div>
 
         <!-- ═══ 图表工具栏: 绘图工具 + 指标开关 ═══ -->
-        <div class="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 border-b border-ink-600/60 px-3 py-1.5" data-page-node-id="UCoo0hbRL7XRN2jhlKHTs6">
+        <div class="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 border-b border-ink-600/60 px-3 py-1.5" data-page-node-id="UCoo0hbRL7XRN2jhlKHTs6"> <!-- 工具栏容器 -->
           <!-- 绘图 -->
-          <div class="flex items-center gap-0.5 rounded-lg border border-ink-600 bg-ink-750 p-0.5" data-page-node-id="J6BCARvhErHv7L0NzyaE3q">
+          <div class="flex items-center gap-0.5 rounded-lg border border-ink-600 bg-ink-750 p-0.5" data-page-node-id="J6BCARvhErHv7L0NzyaE3q"> <!-- 绘图工具组 -->
             <button v-for="t in TOOLS" :key="t[0]" @click="setTool(t[0])" class="tool" :class="tool===t[0]?'tool-on':''"
-                    :title="t[1] + (t[0]==='cursor' ? '(视图模式)' : ' · 拖拽绘制 · 右键删线 · Esc 退出')" data-page-node-id="NAjOpZpQuSZHxS5ad8ZCLA">{{ t[2] }}</button>
+                    :title="t[1] + (t[0]==='cursor' ? '(视图模式)' : ' · 拖拽绘制 · 右键删线 · Esc 退出')" data-page-node-id="NAjOpZpQuSZHxS5ad8ZCLA">{{ t[2] }}</button> <!-- 工具按钮(图标+悬停说明, 当前工具高亮) -->
           </div>
-          <div class="flex items-center gap-1" data-page-node-id="7CBInwHzpdunCvxRlkuBIM">
+          <div class="flex items-center gap-1" data-page-node-id="7CBInwHzpdunCvxRlkuBIM"> <!-- 颜色色板组 -->
             <button v-for="c in DRAW_COLORS" :key="c" @click="setDrawColor(c)" class="h-3.5 w-3.5 rounded-full border transition-transform"
-                    :class="drawColor===c?'scale-125 border-txt-1':'border-ink-500'" :style="{background:c}" :title="'画线颜色 ' + c" data-page-node-id="NXsUS2P1pVXZg0XVQFDzn0"></button>
+                    :class="drawColor===c?'scale-125 border-txt-1':'border-ink-500'" :style="{background:c}" :title="'画线颜色 ' + c" data-page-node-id="NXsUS2P1pVXZg0XVQFDzn0"></button> <!-- 色板圆点(选中放大) -->
           </div>
-          <button @click="undoDraw()" class="ico-btn" title="撤销上一笔" data-page-node-id="KzTwVV4ZAWFAH8CLKUMOxD">↶</button>
-          <button @click="clearDraw()" class="ico-btn" title="清空本图画线" data-page-node-id="JVv1k6nWYmV84cgQW4WlAD">🗑</button>
+          <button @click="undoDraw()" class="ico-btn" title="撤销上一笔" data-page-node-id="KzTwVV4ZAWFAH8CLKUMOxD">↶</button> <!-- 撤销画线 -->
+          <button @click="clearDraw()" class="ico-btn" title="清空本图画线" data-page-node-id="JVv1k6nWYmV84cgQW4WlAD">🗑</button> <!-- 清空画线 -->
 
-          <span class="h-4 w-px bg-ink-600" data-page-node-id="TOU7p7CzqpYZ5TxFVtRhNa"></span>
+          <span class="h-4 w-px bg-ink-600" data-page-node-id="TOU7p7CzqpYZ5TxFVtRhNa"></span> <!-- 竖分隔线 -->
 
           <!-- 主图指标 -->
-          <div class="flex items-center gap-1" data-page-node-id="aDzNDVGbHZQO2FfaGc6ToS">
-            <span class="lbl" data-page-node-id="BNiyDHHnZbbqCY0KYNBoWB">主图</span>
-            <span @click="toggleMA()" class="chip" :class="indOn.ma?'chip-on':''" :title="'均线 MA ' + cfg.ma.join('/')" data-page-node-id="0sgs9N4UDFfoE7zEIiXdiJ">MA</span>
-            <span @click="toggleEMA()" class="chip" :class="indOn.ema?'chip-on':''" :title="'指数均线 EMA ' + (cfg.ema.length?cfg.ema.join('/'):'7/25/99')" data-page-node-id="JsVwM4xiDsl89TBlmuFTNM">EMA</span>
-            <span @click="toggleBOLL()" class="chip" :class="indOn.boll?'chip-on':''" :title="'布林带 BOLL(' + cfg.boll.n + ',' + cfg.boll.k + ')'" data-page-node-id="rHHXjewLlbOBHpicQflZ9D">BOLL</span>
+          <div class="flex items-center gap-1" data-page-node-id="aDzNDVGbHZQO2FfaGc6ToS"> <!-- 主图指标组 -->
+            <span class="lbl" data-page-node-id="BNiyDHHnZbbqCY0KYNBoWB">主图</span> <!-- 组标签 -->
+            <span @click="toggleMA()" class="chip" :class="indOn.ma?'chip-on':''" :title="'均线 MA ' + cfg.ma.join('/')" data-page-node-id="0sgs9N4UDFfoE7zEIiXdiJ">MA</span> <!-- MA 开关芯片 -->
+            <span @click="toggleEMA()" class="chip" :class="indOn.ema?'chip-on':''" :title="'指数均线 EMA ' + (cfg.ema.length?cfg.ema.join('/'):'7/25/99')" data-page-node-id="JsVwM4xiDsl89TBlmuFTNM">EMA</span> <!-- EMA 开关芯片 -->
+            <span @click="toggleBOLL()" class="chip" :class="indOn.boll?'chip-on':''" :title="'布林带 BOLL(' + cfg.boll.n + ',' + cfg.boll.k + ')'" data-page-node-id="rHHXjewLlbOBHpicQflZ9D">BOLL</span> <!-- BOLL 开关芯片 -->
           </div>
 
-          <span class="h-4 w-px bg-ink-600" data-page-node-id="TEGquA7B9ykG2ye0kPGsbv"></span>
+          <span class="h-4 w-px bg-ink-600" data-page-node-id="TEGquA7B9ykG2ye0kPGsbv"></span> <!-- 竖分隔线 -->
 
           <!-- 副图指标 -->
-          <div class="flex items-center gap-1" data-page-node-id="AjVFNcgQn3wG0FVEFe5Ja8">
-            <span class="lbl" data-page-node-id="q8BRbvrIw39plzr9fgldex">副图</span>
-            <span v-for="p in PANE_DEF" :key="p[0]" @click="togglePane(p[0])" class="chip" :class="indOn[p[0]]?'chip-on':''" :title="p[1] + ' · ' + p[2] + ' (最多 3 个)'" data-page-node-id="Qs2F9zFgDipm8FRlzprTkq">{{ p[1] }}</span>
+          <div class="flex items-center gap-1" data-page-node-id="AjVFNcgQn3wG0FVEFe5Ja8"> <!-- 副图指标组 -->
+            <span class="lbl" data-page-node-id="q8BRbvrIw39plzr9fgldex">副图</span> <!-- 组标签 -->
+            <span v-for="p in PANE_DEF" :key="p[0]" @click="togglePane(p[0])" class="chip" :class="indOn[p[0]]?'chip-on':''" :title="p[1] + ' · ' + p[2] + ' (最多 3 个)'" data-page-node-id="Qs2F9zFgDipm8FRlzprTkq">{{ p[1] }}</span> <!-- 副图开关芯片(最多3个) -->
           </div>
 
-          <span class="flex-1" data-page-node-id="RWn5rwGg3UZynjHLSRBr2k"></span>
+          <span class="flex-1" data-page-node-id="RWn5rwGg3UZynjHLSRBr2k"></span> <!-- 弹性占位 -->
 
           <!-- 显示开关 -->
-          <span class="lbl" data-page-node-id="AWKhAuTwBvoa6cA30LIvuO">显示</span>
-          <span @click="setCfgKey('marks',!cfg.marks)" class="chip" :class="cfg.marks?'chip-on':''" data-page-node-id="AjDHJHBHTLqzMxnQfB5tWO">买卖信号</span>
-          <span @click="setCfgKey('pivots',!cfg.pivots)" class="chip" :class="cfg.pivots?'chip-on':''" data-page-node-id="CADuiXThKLOgJUBj08WmWo">算法转折</span>
-          <span @click="setCfgKey('avgline',!cfg.avgline)" class="chip" :class="cfg.avgline?'chip-on':''" data-page-node-id="cVxlQjWeOyCwrgBWcqeGeC">均价线</span>
-          <span @click="setCfgKey('grid',!cfg.grid)" class="chip" :class="cfg.grid?'chip-on':''" data-page-node-id="9SzLNS4WTAcj0IRdde70Ea">网格</span>
+          <span class="lbl" data-page-node-id="AWKhAuTwBvoa6cA30LIvuO">显示</span> <!-- 显示组标签 -->
+          <span @click="setCfgKey('marks',!cfg.marks)" class="chip" :class="cfg.marks?'chip-on':''" data-page-node-id="AjDHJHBHTLqzMxnQfB5tWO">买卖信号</span> <!-- 买卖信号开关 -->
+          <span @click="setCfgKey('pivots',!cfg.pivots)" class="chip" :class="cfg.pivots?'chip-on':''" data-page-node-id="CADuiXThKLOgJUBj08WmWo">算法转折</span> <!-- 转折点开关 -->
+          <span @click="setCfgKey('avgline',!cfg.avgline)" class="chip" :class="cfg.avgline?'chip-on':''" data-page-node-id="cVxlQjWeOyCwrgBWcqeGeC">均价线</span> <!-- 持仓均价线开关 -->
+          <span @click="setCfgKey('grid',!cfg.grid)" class="chip" :class="cfg.grid?'chip-on':''" data-page-node-id="9SzLNS4WTAcj0IRdde70Ea">网格</span> <!-- 网格线开关 -->
         </div>
 
         <!-- 图表 -->
-        <div class="relative" data-page-node-id="JaOF1J4t7GKMOKMlKl23uq">
-          <div ref="chartEl" :style="{height: chartH + 'px'}" class="w-full" data-page-node-id="dB1pSY6p7bM3cRi5y2mQx4"></div>
+        <div class="relative" data-page-node-id="JaOF1J4t7GKMOKMlKl23uq"> <!-- 图表容器(相对定位放浮层) -->
+          <div ref="chartEl" :style="{height: chartH + 'px'}" class="w-full" data-page-node-id="dB1pSY6p7bM3cRi5y2mQx4"></div> <!-- Lightweight Charts 挂载点(高度随副图自适应) -->
 
           <!-- ═══ 图内左上角: 实时行情图例(随 ticker 跳动) ═══ -->
-          <div class="pointer-events-none absolute left-2.5 top-2 z-10 flex items-center gap-2 rounded-lg border border-ink-600/70 bg-ink-900/80 px-2.5 py-1.5 shadow-card backdrop-blur-sm" data-page-node-id="KDyyjoCsvFpHUEvzB347S7">
-            <span class="text-[13px] font-bold tracking-wide text-txt-1" data-page-node-id="hiMzNyEOgcNsVFj9Brd309">{{ sym.short || short(inst) }}</span>
-            <span class="num rounded bg-ink-750 px-1 text-3xs font-semibold text-txt-3" data-page-node-id="W8pupJfiasy901OtThtUA6">{{ tf }}</span>
-            <span class="h-3.5 w-px bg-ink-600" data-page-node-id="CuYWNPO5iRBzVLJI8jVjMj"></span>
-            <span :key="'p' + live.n" class="num rounded px-1 text-[16px] font-bold leading-none" :class="liveFlash" data-page-node-id="Cyb7xfXfJZklEuEfdLhFw8">{{ live.px ? fmtPx(live.px) : '--' }}</span>
-            <span class="flex flex-col leading-[7px] text-[9px]" data-page-node-id="7ZovspEzGahKzyGQyHlEHB">
-              <span :class="dirCls(live.dir)">▲</span>
-              <span :class="live.dir<0?'text-dn animate-arrowpop':'text-ink-500'" data-page-node-id="suVhSFTCdMtQAfhQFKA5mG">▼</span>
+          <div class="pointer-events-none absolute left-2.5 top-2 z-10 flex items-center gap-2 rounded-lg border border-ink-600/70 bg-ink-900/80 px-2.5 py-1.5 shadow-card backdrop-blur-sm" data-page-node-id="KDyyjoCsvFpHUEvzB347S7"> <!-- 图内图例浮层(不拦截鼠标) -->
+            <span class="text-[13px] font-bold tracking-wide text-txt-1" data-page-node-id="hiMzNyEOgcNsVFj9Brd309">{{ sym.short || short(inst) }}</span> <!-- 合约短名 -->
+            <span class="num rounded bg-ink-750 px-1 text-3xs font-semibold text-txt-3" data-page-node-id="W8pupJfiasy901OtThtUA6">{{ tf }}</span> <!-- 当前周期徽章 -->
+            <span class="h-3.5 w-px bg-ink-600" data-page-node-id="CuYWNPO5iRBzVLJI8jVjMj"></span> <!-- 竖分隔线 -->
+            <span :key="'p' + live.n" class="num rounded px-1 text-[16px] font-bold leading-none" :class="liveFlash" data-page-node-id="Cyb7xfXfJZklEuEfdLhFw8">{{ live.px ? fmtPx(live.px) : '--' }}</span> <!-- 实时价(变动闪光) -->
+            <span class="flex flex-col leading-[7px] text-[9px]" data-page-node-id="7ZovspEzGahKzyGQyHlEHB"> <!-- 上下箭头组 -->
+              <span :class="dirCls(live.dir)">▲</span> <!-- 上箭头 -->
+              <span :class="live.dir<0?'text-dn animate-arrowpop':'text-ink-500'" data-page-node-id="suVhSFTCdMtQAfhQFKA5mG">▼</span> <!-- 下箭头 -->
             </span>
-            <span class="num badge" :class="liveBadge" data-page-node-id="CRz3DLWQbhlf9htGZrDGOB">{{ live.chg>=0?'+':'' }}{{ live.chg.toFixed(2) }}%</span>
-            <span class="num text-[11px] font-semibold" :class="sgnCls(live.chg)">{{ live.amt }}</span>
+            <span class="num badge" :class="liveBadge" data-page-node-id="CRz3DLWQbhlf9htGZrDGOB">{{ live.chg>=0?'+':'' }}{{ live.chg.toFixed(2) }}%</span> <!-- 涨跌幅徽章 -->
+            <span class="num text-[11px] font-semibold" :class="sgnCls(live.chg)">{{ live.amt }}</span> <!-- 价差金额 -->
           </div>
 
           <!-- 悬停 OHLC 浮窗(移右上, 避开实时图例) -->
-          <div v-if="hover" class="pointer-events-none absolute right-3 top-2.5 z-10 rounded-lg border border-ink-500 bg-ink-900/92 px-2.5 py-1.5 text-2xs shadow-card backdrop-blur" data-page-node-id="i43pl2MPzpur3YbLLT6PBS">
-            <div class="num mb-1 text-txt-3" data-page-node-id="Ujn9cEBgNNLXIsNtO1d5Wb">{{ hover.tstr }}</div>
-            <div class="grid grid-cols-2 gap-x-3 gap-y-0.5 num" data-page-node-id="LKgIk6OGpEa7KmGFFqw6U7">
-              <span class="text-txt-4" data-page-node-id="Cqsz8MA1JiEq8EcbeFzLe9">开 <b class="text-txt-1" data-page-node-id="gxdFqt6t3EcDFNbJCGfbeq">{{ fmtPx(hover.o) }}</b></span>
-              <span class="text-txt-4" data-page-node-id="MpdrcRFUNLNcB4sceLbE4c">高 <b class="text-up" data-page-node-id="I8EoriMpfJRFoCZLp4WJe1">{{ fmtPx(hover.h) }}</b></span>
-              <span class="text-txt-4" data-page-node-id="MvuCdTNb1DEl1AskpC9m8n">低 <b class="text-dn" data-page-node-id="YGjE0L0nfGHWEErqwfLGgn">{{ fmtPx(hover.l) }}</b></span>
-              <span class="text-txt-4">收 <b :class="sgnCls(hover.c - hover.o)">{{ fmtPx(hover.c) }}</b></span>
-              <span class="text-txt-4" data-page-node-id="S643VFLFfbabxr76dt9aYV">量 <b class="text-txt-2" data-page-node-id="MUoXXXMYGEwbXr36HcxGiC">{{ hover.vol?Math.round(hover.vol).toLocaleString():'—' }}</b></span>
-              <span class="text-txt-4">MACD <b :class="sgnCls(hover.hist)">{{ hover.hist==null?'—':hover.hist.toFixed(4) }}</b></span>
+          <div v-if="hover" class="pointer-events-none absolute right-3 top-2.5 z-10 rounded-lg border border-ink-500 bg-ink-900/92 px-2.5 py-1.5 text-2xs shadow-card backdrop-blur" data-page-node-id="i43pl2MPzpur3YbLLT6PBS"> <!-- OHLC 浮窗(悬停K线时显示) -->
+            <div class="num mb-1 text-txt-3" data-page-node-id="Ujn9cEBgNNLXIsNtO1d5Wb">{{ hover.tstr }}</div> <!-- 悬停时间 -->
+            <div class="grid grid-cols-2 gap-x-3 gap-y-0.5 num" data-page-node-id="LKgIk6OGpEa7KmGFFqw6U7"> <!-- 两列数据网格 -->
+              <span class="text-txt-4" data-page-node-id="Cqsz8MA1JiEq8EcbeFzLe9">开 <b class="text-txt-1" data-page-node-id="gxdFqt6t3EcDFNbJCGfbeq">{{ fmtPx(hover.o) }}</b></span> <!-- 开盘价 -->
+              <span class="text-txt-4" data-page-node-id="MpdrcRFUNLNcB4sceLbE4c">高 <b class="text-up" data-page-node-id="I8EoriMpfJRFoCZLp4WJe1">{{ fmtPx(hover.h) }}</b></span> <!-- 最高价 -->
+              <span class="text-txt-4" data-page-node-id="MvuCdTNb1DEl1AskpC9m8n">低 <b class="text-dn" data-page-node-id="YGjE0L0nfGHWEErqwfLGgn">{{ fmtPx(hover.l) }}</b></span> <!-- 最低价 -->
+              <span class="text-txt-4">收 <b :class="sgnCls(hover.c - hover.o)">{{ fmtPx(hover.c) }}</b></span> <!-- 收盘价(阴阳着色) -->
+              <span class="text-txt-4" data-page-node-id="S643VFLFfbabxr76dt9aYV">量 <b class="text-txt-2" data-page-node-id="MUoXXXMYGEwbXr36HcxGiC">{{ hover.vol?Math.round(hover.vol).toLocaleString():'—' }}</b></span> <!-- 成交量 -->
+              <span class="text-txt-4">MACD <b :class="sgnCls(hover.hist)">{{ hover.hist==null?'—':hover.hist.toFixed(4) }}</b></span> <!-- MACD 柱值 -->
             </div>
           </div>
-          <div v-if="kloading" class="pointer-events-none absolute inset-0 grid place-items-center bg-ink-900/40" data-page-node-id="8MOzQ3Qp6yfkMcqaQ1es7H">
-            <span class="rounded-lg border border-ink-600 bg-ink-800 px-3 py-1.5 text-[11px] text-txt-2" data-page-node-id="nASufY7UfGIM06vDXZmyGz">加载中…</span>
+          <div v-if="kloading" class="pointer-events-none absolute inset-0 grid place-items-center bg-ink-900/40" data-page-node-id="8MOzQ3Qp6yfkMcqaQ1es7H"> <!-- K线加载遮罩 -->
+            <span class="rounded-lg border border-ink-600 bg-ink-800 px-3 py-1.5 text-[11px] text-txt-2" data-page-node-id="nASufY7UfGIM06vDXZmyGz">加载中…</span> <!-- 加载提示 -->
           </div>
-          <div v-if="followOff" class="absolute left-1/2 top-2.5 -translate-x-1/2" data-page-node-id="0uSiqoiN8wuJ7NMRWDjsKT">
-            <button @click="toLatest()" class="btn border-gold/40 bg-gold/15 text-gold" data-page-node-id="YJWubemCaDabnDUQl69Rj2">已暂停跟随 · 回到最新 ⏭</button>
+          <div v-if="followOff" class="absolute left-1/2 top-2.5 -translate-x-1/2" data-page-node-id="0uSiqoiN8wuJ7NMRWDjsKT"> <!-- 跟随暂停提示条 -->
+            <button @click="toLatest()" class="btn border-gold/40 bg-gold/15 text-gold" data-page-node-id="YJWubemCaDabnDUQl69Rj2">已暂停跟随 · 回到最新 ⏭</button> <!-- 点击回最新 -->
           </div>
-          <div v-if="hloading" class="pointer-events-none absolute left-1/2 top-12 -translate-x-1/2" data-page-node-id="NP6LEFmBZvquGis43LMvfn">
-            <span class="flex items-center gap-1.5 rounded-lg border border-gold/40 bg-ink-800/95 px-3 py-1.5 text-[11px] text-gold shadow-card" data-page-node-id="uvbkmlNnYFD5kRJV7s5QhG">
-              <span class="h-1.5 w-1.5 animate-pulse2 rounded-full bg-gold" data-page-node-id="89s91fs8jJcR9LLZsYEJLl"></span>正在加载更早的K线…
+          <div v-if="hloading" class="pointer-events-none absolute left-1/2 top-12 -translate-x-1/2" data-page-node-id="NP6LEFmBZvquGis43LMvfn"> <!-- 历史加载提示条 -->
+            <span class="flex items-center gap-1.5 rounded-lg border border-gold/40 bg-ink-800/95 px-3 py-1.5 text-[11px] text-gold shadow-card" data-page-node-id="uvbkmlNnYFD5kRJV7s5QhG"> <!-- 金色提示框 -->
+              <span class="h-1.5 w-1.5 animate-pulse2 rounded-full bg-gold" data-page-node-id="89s91fs8jJcR9LLZsYEJLl"></span>正在加载更早的K线… <!-- 呼吸灯+文案 -->
             </span>
           </div>
-          <div v-if="tool!=='cursor'" class="pointer-events-none absolute right-3 top-2.5 z-10" data-page-node-id="FAlSlyU8UAbHDatB1Bxnib">
-            <span class="flex items-center gap-1.5 rounded-lg border border-gold/40 bg-ink-800/95 px-2.5 py-1.5 text-[11px] text-gold shadow-card" data-page-node-id="IC18nz1F3PD8PkHME8aDms">
-              ✎ {{ (TOOLS.find(function(x){return x[0]===tool})||['','',''])[1] }} 绘制中 · 右键删线 · Esc 退出
+          <div v-if="tool!=='cursor'" class="pointer-events-none absolute right-3 top-2.5 z-10" data-page-node-id="FAlSlyU8UAbHDatB1Bxnib"> <!-- 绘图模式提示浮层 -->
+            <span class="flex items-center gap-1.5 rounded-lg border border-gold/40 bg-ink-800/95 px-2.5 py-1.5 text-[11px] text-gold shadow-card" data-page-node-id="IC18nz1F3PD8PkHME8aDms"> <!-- 金色提示框 -->
+              ✎ {{ (TOOLS.find(function(x){return x[0]===tool})||['','',''])[1] }} 绘制中 · 右键删线 · Esc 退出 <!-- 当前工具名+操作提示 -->
             </span>
           </div>
-          <div v-if="kerr" class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-lg border border-up/40 bg-ink-800 px-3 py-2 text-[11px] text-up" data-page-node-id="LQPvuxVOnv7jWAvTpY7QEE">{{ kerr }}</div>
+          <div v-if="kerr" class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-lg border border-up/40 bg-ink-800 px-3 py-2 text-[11px] text-up" data-page-node-id="LQPvuxVOnv7jWAvTpY7QEE">{{ kerr }}</div> <!-- K线错误提示(居中红字) -->
         </div>
 
         <!-- 图例 -->
-        <div class="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-ink-600 px-3 py-2 text-2xs text-txt-3" data-page-node-id="3urv83XwD1dfpSQ0I8Svna">
-          <span data-page-node-id="ZToYWM5sYoKH0jSrCAtyo6"><b class="text-up" data-page-node-id="GAwzvdGXiND2sxxKVNgSme">🚀 买</b> 5m+3m 金▲共振开仓</span>
-          <span data-page-node-id="HuaqrXfkSvEl60PCDnJcGI"><b class="text-gold" data-page-node-id="QKCGIRHmhHzXmXR1D7Qqng">▲ 加仓</b> 跌时 3m 金▲ · 每轮 +⅓U</span>
-          <span data-page-node-id="Ro9X1xpynjMHS4cBlU3qWX"><b class="text-txt-1" data-page-node-id="RDz15XsSPYhV8S4zqNjqke">🍃 平</b> +2% 止盈 · 旁标盈亏(红盈绿亏)</span>
-          <span data-page-node-id="0fMzDudhe3SOoAf5UR5rhK"><b class="text-gold" data-page-node-id="0SUCY4FH7DRyhLl057IE6n">● 金▲ KE值</b> 底部动能进前25% (KE≥阈值)</span>
-          <span data-page-node-id="6YS7DNlvbB3kByfaFhyl1S"><b class="text-violet" data-page-node-id="T3siJGc0H0AAknYzpefIyw">● 底</b> 普通转折底 (小字=下跌腿动能)</span>
-          <span data-page-node-id="zeILeAy4gJFjDnYGQRGxlr"><b class="text-info" data-page-node-id="i0ZWFFBt9i84RKEwF9Mfq1">● 顶</b> 算法转折顶 (达标才标 KE)</span>
-          <span data-page-node-id="ogahSxXah3rAiwugbfXYBD"><b class="text-gold" data-page-node-id="YXnWxtRJKZU2GfM76b9OOJ">┄ 均价</b> 持仓成本线</span>
-          <span data-page-node-id="wZxugfjBBHLHAwG4cu7c8Y"><b class="text-dn" data-page-node-id="YIEBrE0Cgf0fKUvsJkHf2o">┄ 止盈</b> 目标价 +2%</span>
-          <span class="flex-1" data-page-node-id="KwSpwBPrmDkiffn41mX8eQ"></span>
-          <span class="text-txt-4" data-page-node-id="Afux1Bxy1wk1zXoYBiuTNq">滚轮缩放 · 拖拽平移 · <b class="text-gold" data-page-node-id="EdywuwsBvtQJENLCupni4E">向左拖自动加载更早K线</b> · 双击复位 · 北京时间</span>
+        <div class="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-ink-600 px-3 py-2 text-2xs text-txt-3" data-page-node-id="3urv83XwD1dfpSQ0I8Svna"> <!-- 图例说明区 -->
+          <span data-page-node-id="ZToYWM5sYoKH0jSrCAtyo6"><b class="text-up" data-page-node-id="GAwzvdGXiND2sxxKVNgSme">🚀 买</b> 5m+3m 金▲共振开仓</span> <!-- 买入图例 -->
+          <span data-page-node-id="HuaqrXfkSvEl60PCDnJcGI"><b class="text-gold" data-page-node-id="QKCGIRHmhHzXmXR1D7Qqng">▲ 加仓</b> 跌时 3m 金▲ · 每轮 +⅓U</span> <!-- 加仓图例 -->
+          <span data-page-node-id="Ro9X1xpynjMHS4cBlU3qWX"><b class="text-txt-1" data-page-node-id="RDz15XsSPYhV8S4zqNjqke">🍃 平</b> +2% 止盈 · 旁标盈亏(红盈绿亏)</span> <!-- 平仓图例 -->
+          <span data-page-node-id="0fMzDudhe3SOoAf5UR5rhK"><b class="text-gold" data-page-node-id="0SUCY4FH7DRyhLl057IE6n">● 金▲ KE值</b> 底部动能进前25% (KE≥阈值)</span> <!-- 金▲图例 -->
+          <span data-page-node-id="6YS7DNlvbB3kByfaFhyl1S"><b class="text-violet" data-page-node-id="T3siJGc0H0AAknYzpefIyw">● 底</b> 普通转折底 (小字=下跌腿动能)</span> <!-- 转折底图例 -->
+          <span data-page-node-id="zeILeAy4gJFjDnYGQRGxlr"><b class="text-info" data-page-node-id="i0ZWFFBt9i84RKEwF9Mfq1">● 顶</b> 算法转折顶 (达标才标 KE)</span> <!-- 转折顶图例 -->
+          <span data-page-node-id="ogahSxXah3rAiwugbfXYBD"><b class="text-gold" data-page-node-id="YXnWxtRJKZU2GfM76b9OOJ">┄ 均价</b> 持仓成本线</span> <!-- 均价线图例 -->
+          <span data-page-node-id="wZxugfjBBHLHAwG4cu7c8Y"><b class="text-dn" data-page-node-id="YIEBrE0Cgf0fKUvsJkHf2o">┄ 止盈</b> 目标价 +2%</span> <!-- 止盈线图例 -->
+          <span class="flex-1" data-page-node-id="KwSpwBPrmDkiffn41mX8eQ"></span> <!-- 弹性占位 -->
+          <span class="text-txt-4" data-page-node-id="Afux1Bxy1wk1zXoYBiuTNq">滚轮缩放 · 拖拽平移 · <b class="text-gold" data-page-node-id="EdywuwsBvtQJENLCupni4E">向左拖自动加载更早K线</b> · 双击复位 · 北京时间</span> <!-- 操作说明 -->
         </div>
       </div>
 
       <!-- ═══ 实时监测(紧贴K线) ═══ -->
-      <div class="card" data-page-node-id="pl3zfBI95YQc3w4HUOIIaL">
-        <div class="card-h" data-page-node-id="s7dCCHJySBEUMJxZivOrBw">
-          <span class="card-t" data-page-node-id="0Ba9OfPpcpEEUXv7y6VMzE">🛰 实时监测 <span class="text-3xs text-txt-4" data-page-node-id="7c7CjpltnSYKkxj2gfTKau">(点卡片切图 · 进度条=距止盈)</span></span>
-          <span class="flex-1" data-page-node-id="CddxmlzzSU6juFrh4K9LEP"></span>
-          <span class="badge border-gold/40 bg-gold/10 text-gold" data-page-node-id="bbqdJUUaOGUqzZs2JzIbB2">持仓 {{ gridRows.length }}</span>
+      <div class="card" data-page-node-id="pl3zfBI95YQc3w4HUOIIaL"> <!-- 实时监测卡片 -->
+        <div class="card-h" data-page-node-id="s7dCCHJySBEUMJxZivOrBw"> <!-- 卡片头 -->
+          <span class="card-t" data-page-node-id="0Ba9OfPpcpEEUXv7y6VMzE">🛰 实时监测 <span class="text-3xs text-txt-4" data-page-node-id="7c7CjpltnSYKkxj2gfTKau">(点卡片切图 · 进度条=距止盈)</span></span> <!-- 标题+操作提示 -->
+          <span class="flex-1" data-page-node-id="CddxmlzzSU6juFrh4K9LEP"></span> <!-- 弹性占位 -->
+          <span class="badge border-gold/40 bg-gold/10 text-gold" data-page-node-id="bbqdJUUaOGUqzZs2JzIbB2">持仓 {{ gridRows.length }}</span> <!-- 持仓数徽章 -->
         </div>
-        <div class="grid grid-cols-1 gap-2 p-2 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4" data-page-node-id="eXgPvZo1TO9cZOyo1ItC65">
-          <div v-for="r in gridRows" :key="r.inst_id" class="cursor-pointer rounded-lg border border-ink-600/60 bg-ink-750/40 px-2.5 py-2 transition-colors hover:border-ink-500 hover:bg-ink-700/50" :class="r.inst_id===inst?'!border-gold/50 bg-gold/[.06]':''" @click="pick(r.inst_id)" data-page-node-id="hv6O1csYp7MyMKykyGjO1c">
-            <div class="flex items-center gap-2" data-page-node-id="FBfgVWwXPdGCXmpcw75lzE">
-              <span class="text-[12px] font-bold" data-page-node-id="BprxOnWoVkhuH2RNQb0eB0">{{ short(r.inst_id) }}</span>
-              <span class="badge border-ink-600 bg-ink-800 text-gold" data-page-node-id="p2wNeho8W1n1TDZ9c0yp79">加仓 {{ r.ladder_adds }}</span>
-              <span class="flex-1" data-page-node-id="vLB3jWG03k1BxbsJA3coag"></span>
-              <span class="num text-[12px] font-bold" :class="sgnCls(num(r.last_px) - num(r.avg_px))">{{ fmtPx(num(r.last_px)) }}</span>
+        <div class="grid grid-cols-1 gap-2 p-2 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4" data-page-node-id="eXgPvZo1TO9cZOyo1ItC65"> <!-- 持仓卡片网格(响应式列数) -->
+          <div v-for="r in gridRows" :key="r.inst_id" class="cursor-pointer rounded-lg border border-ink-600/60 bg-ink-750/40 px-2.5 py-2 transition-colors hover:border-ink-500 hover:bg-ink-700/50" :class="r.inst_id===inst?'!border-gold/50 bg-gold/[.06]':''" @click="pick(r.inst_id)" data-page-node-id="hv6O1csYp7MyMKykyGjO1c"> <!-- 持仓卡片: 点击切图, 当前合约金框高亮 -->
+            <div class="flex items-center gap-2" data-page-node-id="FBfgVWwXPdGCXmpcw75lzE"> <!-- 第一行 -->
+              <span class="text-[12px] font-bold" data-page-node-id="BprxOnWoVkhuH2RNQb0eB0">{{ short(r.inst_id) }}</span> <!-- 合约短名 -->
+              <span class="badge border-ink-600 bg-ink-800 text-gold" data-page-node-id="p2wNeho8W1n1TDZ9c0yp79">加仓 {{ r.ladder_adds }}</span> <!-- 已加仓次数 -->
+              <span class="flex-1" data-page-node-id="vLB3jWG03k1BxbsJA3coag"></span> <!-- 弹性占位 -->
+              <span class="num text-[12px] font-bold" :class="sgnCls(num(r.last_px) - num(r.avg_px))">{{ fmtPx(num(r.last_px)) }}</span> <!-- 最新价(相对均价红/绿) -->
             </div>
-            <div class="mt-1 grid grid-cols-3 gap-1 text-3xs text-txt-4" data-page-node-id="BXHtFaXgT8cffnegZb8Exs">
-              <span data-page-node-id="W6bMqfDOvvaK69jM5cKszV">均价 <b class="num text-txt-2" data-page-node-id="mMjHhiZ9skOFhCIEhON9MQ">{{ fmtPx(num(r.avg_px)) }}</b></span>
-              <span data-page-node-id="0IRH3k6IJBqjnVPl6TVyWX">止盈 <b class="num text-dn" data-page-node-id="EDHGqlLJjutkgiUrX9hHF9">{{ fmtPx(num(r.tp_px)) }}</b></span>
-              <span data-page-node-id="ZCHm3Rh4wqyFFjXonUUgGd">张数 <b class="num text-txt-2" data-page-node-id="3dduEnPD1TEB7Hhp3b5BFK">{{ r.units }}</b></span>
+            <div class="mt-1 grid grid-cols-3 gap-1 text-3xs text-txt-4" data-page-node-id="BXHtFaXgT8cffnegZb8Exs"> <!-- 三列小数据 -->
+              <span data-page-node-id="W6bMqfDOvvaK69jM5cKszV">均价 <b class="num text-txt-2" data-page-node-id="mMjHhiZ9skOFhCIEhON9MQ">{{ fmtPx(num(r.avg_px)) }}</b></span> <!-- 持仓均价 -->
+              <span data-page-node-id="0IRH3k6IJBqjnVPl6TVyWX">止盈 <b class="num text-dn" data-page-node-id="EDHGqlLJjutkgiUrX9hHF9">{{ fmtPx(num(r.tp_px)) }}</b></span> <!-- 止盈价 -->
+              <span data-page-node-id="ZCHm3Rh4wqyFFjXonUUgGd">张数 <b class="num text-txt-2" data-page-node-id="3dduEnPD1TEB7Hhp3b5BFK">{{ r.units }}</b></span> <!-- 持仓张数 -->
             </div>
-            <div class="mt-1.5" data-page-node-id="HLzzy4iWBqrqJGc3bDWoSw">
-              <div class="h-1 w-full overflow-hidden rounded-full bg-ink-700" data-page-node-id="T0SzH8XX7i69J6I36DGS5l">
-                <div class="h-full rounded-full bg-gradient-to-r from-dn/70 to-dn transition-all" :style="{width: tpPct(r)+'%'}" data-page-node-id="k2VfuBCDjBRM3NIRJFszdm"></div>
+            <div class="mt-1.5" data-page-node-id="HLzzy4iWBqrqJGc3bDWoSw"> <!-- 止盈进度区 -->
+              <div class="h-1 w-full overflow-hidden rounded-full bg-ink-700" data-page-node-id="T0SzH8XX7i69J6I36DGS5l"> <!-- 进度条轨道 -->
+                <div class="h-full rounded-full bg-gradient-to-r from-dn/70 to-dn transition-all" :style="{width: tpPct(r)+'%'}" data-page-node-id="k2VfuBCDjBRM3NIRJFszdm"></div> <!-- 进度条填充(绿渐变) -->
               </div>
-              <div class="mt-0.5 flex justify-between text-3xs text-txt-4" data-page-node-id="xgvsciHCpClUQux9iCA5k3">
-                <span data-page-node-id="ECd9WOu757Y9mzVRBKLrFw">{{ r.state }}</span>
-                <span data-page-node-id="UraiEnXJ5zM5kqC4UBvqL9">距止盈 <b class="num text-dn" data-page-node-id="nAnNzaEh2whpsWev45TCSh">{{ tpDist(r).toFixed(2) }}%</b></span>
+              <div class="mt-0.5 flex justify-between text-3xs text-txt-4" data-page-node-id="xgvsciHCpClUQux9iCA5k3"> <!-- 进度下方说明行 -->
+                <span data-page-node-id="ECd9WOu757Y9mzVRBKLrFw">{{ r.state }}</span> <!-- 持仓状态 -->
+                <span data-page-node-id="UraiEnXJ5zM5kqC4UBvqL9">距止盈 <b class="num text-dn" data-page-node-id="nAnNzaEh2whpsWev45TCSh">{{ tpDist(r).toFixed(2) }}%</b></span> <!-- 距止盈百分比 -->
               </div>
             </div>
           </div>
-          <div v-if="!gridRows.length" class="col-span-full px-3 py-6 text-center text-2xs text-txt-4" data-page-node-id="CcFh8f6AhW9eMfh8IeTGWQ">当前无持仓</div>
+          <div v-if="!gridRows.length" class="col-span-full px-3 py-6 text-center text-2xs text-txt-4" data-page-node-id="CcFh8f6AhW9eMfh8IeTGWQ">当前无持仓</div> <!-- 空持仓占位 -->
         </div>
       </div>
 
       <!-- ═══ 交易流水(紧贴K线) ═══ -->
-      <div class="card" data-page-node-id="0AHUbtWVYnyahCbBcV8zsK">
-        <div class="card-h" data-page-node-id="rnTIpuKRE3AJDqQeBvLP0k">
-          <span class="card-t" data-page-node-id="mMPcoD37hkBCdfMCBuY7bu">📊 交易流水 <span class="text-3xs text-txt-4" data-page-node-id="t0b7YUXLw8D2O06uiL27fC">(平仓盈亏匹配 OKX 真实成交 · 点合约名切图)</span></span>
-          <span class="flex-1" data-page-node-id="JP2g6V0LOBqgsTKuuGLJzs"></span>
-          <span class="badge border-ink-600 bg-ink-750 text-txt-3" data-page-node-id="8bqLLYdFEYNz2LWQ75P7Q8">共 {{ trades.length }} 条</span>
+      <div class="card" data-page-node-id="0AHUbtWVYnyahCbBcV8zsK"> <!-- 交易流水卡片 -->
+        <div class="card-h" data-page-node-id="rnTIpuKRE3AJDqQeBvLP0k"> <!-- 卡片头 -->
+          <span class="card-t" data-page-node-id="mMPcoD37hkBCdfMCBuY7bu">📊 交易流水 <span class="text-3xs text-txt-4" data-page-node-id="t0b7YUXLw8D2O06uiL27fC">(平仓盈亏匹配 OKX 真实成交 · 点合约名切图)</span></span> <!-- 标题+说明 -->
+          <span class="flex-1" data-page-node-id="JP2g6V0LOBqgsTKuuGLJzs"></span> <!-- 弹性占位 -->
+          <span class="badge border-ink-600 bg-ink-750 text-txt-3" data-page-node-id="8bqLLYdFEYNz2LWQ75P7Q8">共 {{ trades.length }} 条</span> <!-- 流水总数 -->
         </div>
-        <div class="max-h-[340px] overflow-y-auto" data-page-node-id="za7a5ro3HLVcK3AtFD0cwr">
-          <table class="tbl" data-page-node-id="8BMPQ4eQXQJCDhmahfxtk5">
-            <thead data-page-node-id="HyxPuVYLPEBCsGEEQseG7K">
-              <tr data-page-node-id="Xaqx0g1gbYNli4j0cFju67">
-                <th data-page-node-id="B0TLhMRrrJ71Sy6IlM3eVP">时间</th><th data-page-node-id="PmZbW5IQwMBSPfdnM3dH9e">合约</th><th data-page-node-id="sZ68XoAuuCaNwb1VFMk3uZ">方向</th><th class="text-right" data-page-node-id="4mW85vC3nChBuCM5xKIT7A">价格</th><th class="text-right" data-page-node-id="aQLM2bAx8Ip4I2QyyUAxca">张数</th>
-                <th class="text-right" data-page-node-id="Hn34ha2ERPv71xQSu91PnC">名义$</th><th class="text-right" data-page-node-id="J9BvQSqSf9KacbHX8T7RVz">净盈亏$</th><th class="text-right" data-page-node-id="FNI5t0UxYXjAf3cuT8dkAu">手续费$</th>
-                <th class="text-right" data-page-node-id="Xn7aUFExcLBfcDVFccMp9x">资金费$</th><th data-page-node-id="DkeU7UXfDO0uuieaDoFSCT">策略</th>
+        <div class="max-h-[340px] overflow-y-auto" data-page-node-id="za7a5ro3HLVcK3AtFD0cwr"> <!-- 表格滚动容器 -->
+          <table class="tbl" data-page-node-id="8BMPQ4eQXQJCDhmahfxtk5"> <!-- 流水表 -->
+            <thead data-page-node-id="HyxPuVYLPEBCsGEEQseG7K"> <!-- 表头 -->
+              <tr data-page-node-id="Xaqx0g1gbYNli4j0cFju67"> <!-- 表头行 -->
+                <th data-page-node-id="B0TLhMRrrJ71Sy6IlM3eVP">时间</th><th data-page-node-id="PmZbW5IQwMBSPfdnM3dH9e">合约</th><th data-page-node-id="sZ68XoAuuCaNwb1VFMk3uZ">方向</th><th class="text-right" data-page-node-id="4mW85vC3nChBuCM5xKIT7A">价格</th><th class="text-right" data-page-node-id="aQLM2bAx8Ip4I2QyyUAxca">张数</th> <!-- 前五列 -->
+                <th class="text-right" data-page-node-id="Hn34ha2ERPv71xQSu91PnC">名义$</th><th class="text-right" data-page-node-id="J9BvQSqSf9KacbHX8T7RVz">净盈亏$</th><th class="text-right" data-page-node-id="FNI5t0UxYXjAf3cuT8dkAu">手续费$</th> <!-- 后三列 -->
+                <th class="text-right" data-page-node-id="Xn7aUFExcLBfcDVFccMp9x">资金费$</th><th data-page-node-id="DkeU7UXfDO0uuieaDoFSCT">策略</th> <!-- 末两列 -->
               </tr>
             </thead>
-            <tbody data-page-node-id="1L1TgPETEEyfrvYvuZoOqI">
-              <tr v-for="(t,i) in trades" :key="i" data-page-node-id="nLBvIDnud3jMHKO3DpaobD">
-                <td class="num text-txt-3" data-page-node-id="51aidHgd8G54pE2re9UWiC">{{ t.trade_time }}</td>
-                <td data-page-node-id="yTenp9hdpVn5n330SbzJho"><button @click="pick(t.inst_id)" class="font-semibold text-txt-1 hover:text-gold" data-page-node-id="sPB0vS4tJVWEUFiRbgww1k">{{ short(t.inst_id) }}</button></td>
-                <td data-page-node-id="nsrkI4LuSBFuCYZZF0I480"><span class="badge" :class="actCls(t.action)" data-page-node-id="vfWyPIgMx7ItWGFlEGv61t">{{ actTxt(t.action) }}</span></td>
-                <td class="num text-right" data-page-node-id="KcsttUAE4AtBfGdAJNHmxD">{{ fmtPx(num(t.price)) }}</td>
-                <td class="num text-right text-txt-3" data-page-node-id="MsrSd4SjBTlRLHRvWF8Cv4">{{ num(t.sz).toFixed(0) }}</td>
-                <td class="num text-right text-txt-3" data-page-node-id="j5Afge3YyEAahqu9x7nGbu">{{ num(t.notional_usd).toFixed(2) }}</td>
-                <td class="num text-right font-semibold" :class="pnlTxt(t)" data-page-node-id="c7XggfI8RzqxjbSyTOgLsF">
-                  {{ t.profit==null||t.profit==='' ? '—' : (num(t.profit)>=0?'+':'')+num(t.profit).toFixed(3) }}
+            <tbody data-page-node-id="1L1TgPETEEyfrvYvuZoOqI"> <!-- 表体 -->
+              <tr v-for="(t,i) in trades" :key="i" data-page-node-id="nLBvIDnud3jMHKO3DpaobD"> <!-- 流水行循环 -->
+                <td class="num text-txt-3" data-page-node-id="51aidHgd8G54pE2re9UWiC">{{ t.trade_time }}</td> <!-- 成交时间 -->
+                <td data-page-node-id="yTenp9hdpVn5n330SbzJho"><button @click="pick(t.inst_id)" class="font-semibold text-txt-1 hover:text-gold" data-page-node-id="sPB0vS4tJVWEUFiRbgww1k">{{ short(t.inst_id) }}</button></td> <!-- 合约名按钮(点击切图) -->
+                <td data-page-node-id="nsrkI4LuSBFuCYZZF0I480"><span class="badge" :class="actCls(t.action)" data-page-node-id="vfWyPIgMx7ItWGFlEGv61t">{{ actTxt(t.action) }}</span></td> <!-- 动作徽章(买/加/平) -->
+                <td class="num text-right" data-page-node-id="KcsttUAE4AtBfGdAJNHmxD">{{ fmtPx(num(t.price)) }}</td> <!-- 成交价 -->
+                <td class="num text-right text-txt-3" data-page-node-id="MsrSd4SjBTlRLHRvWF8Cv4">{{ num(t.sz).toFixed(0) }}</td> <!-- 张数 -->
+                <td class="num text-right text-txt-3" data-page-node-id="j5Afge3YyEAahqu9x7nGbu">{{ num(t.notional_usd).toFixed(2) }}</td> <!-- 名义价值 -->
+                <td class="num text-right font-semibold" :class="pnlTxt(t)" data-page-node-id="c7XggfI8RzqxjbSyTOgLsF"> <!-- 净盈亏单元格(着色) -->
+                  {{ t.profit==null||t.profit==='' ? '—' : (num(t.profit)>=0?'+':'')+num(t.profit).toFixed(3) }} <!-- 盈亏文本(空显示—) -->
                 </td>
-                <td class="num text-right text-txt-4" data-page-node-id="55r8K1Uui864IGyxBo5edL">{{ num(t.fee)===0?'—':num(t.fee).toFixed(4) }}</td>
-                <td class="num text-right text-txt-4" data-page-node-id="xbOEgGMGxVdR4y9Apo3jlt">{{ num(t.funding)===0?'—':num(t.funding).toFixed(4) }}</td>
-                <td class="text-2xs text-txt-3" data-page-node-id="WkSBJnRyVsLSsTmZxXFowJ">{{ t.strat || '—' }}</td>
+                <td class="num text-right text-txt-4" data-page-node-id="55r8K1Uui864IGyxBo5edL">{{ num(t.fee)===0?'—':num(t.fee).toFixed(4) }}</td> <!-- 手续费(0显示—) -->
+                <td class="num text-right text-txt-4" data-page-node-id="xbOEgGMGxVdR4y9Apo3jlt">{{ num(t.funding)===0?'—':num(t.funding).toFixed(4) }}</td> <!-- 资金费(0显示—) -->
+                <td class="text-2xs text-txt-3" data-page-node-id="WkSBJnRyVsLSsTmZxXFowJ">{{ t.strat || '—' }}</td> <!-- 策略名 -->
               </tr>
-              <tr v-if="!trades.length" data-page-node-id="Y1HcroMX8Le5Iknqkv5l06"><td colspan="10" class="py-8 text-center text-2xs text-txt-4" data-page-node-id="KgolDTtumDBnGwh1ClqjmA">暂无流水</td></tr>
+              <tr v-if="!trades.length" data-page-node-id="Y1HcroMX8Le5Iknqkv5l06"><td colspan="10" class="py-8 text-center text-2xs text-txt-4" data-page-node-id="KgolDTtumDBnGwh1ClqjmA">暂无流水</td></tr> <!-- 空流水占位 -->
             </tbody>
           </table>
         </div>
       </div>
 
       <!-- 信号明细 -->
-      <div class="grid grid-cols-1 gap-3 lg:grid-cols-2" data-page-node-id="uUVBbihZ5zWF5uHYnzuHl8">
-        <div class="card" data-page-node-id="0lqBGZTtBCSB7hVj97GWu8">
-          <div class="card-h" data-page-node-id="Ow3OmoTfcjuCtf1ftkIwGM">
-            <span class="card-t" data-page-node-id="i6Pv5AjCpm8a7doFHtUFTz">🎯 本合约信号 <span class="text-3xs text-txt-4" data-page-node-id="2EnmfAZJlqQxlI7kOEPNFq">(近 {{ marksDays }} 天)</span></span>
-            <span class="flex-1" data-page-node-id="2WAWpaxOsPL7KPvJGwPzEt"></span>
-            <span class="badge border-up/40 bg-up/10 text-up" data-page-node-id="UvF3KGOamU5jO2OGbf5zi4">买 {{ sigN.buy }}</span>
-            <span class="badge border-gold/40 bg-gold/10 text-gold" data-page-node-id="IXwAnZt6haAgCBGKJyNgaV">加 {{ sigN.add }}</span>
-            <span class="badge border-ink-500 bg-ink-750 text-txt-2" data-page-node-id="jC1opxpGsCM8c9GjtT0SG7">平 {{ sigN.close }}</span>
+      <div class="grid grid-cols-1 gap-3 lg:grid-cols-2" data-page-node-id="uUVBbihZ5zWF5uHYnzuHl8"> <!-- 双列卡片(宽屏两列) -->
+        <div class="card" data-page-node-id="0lqBGZTtBCSB7hVj97GWu8"> <!-- 本合约信号卡片 -->
+          <div class="card-h" data-page-node-id="Ow3OmoTfcjuCtf1ftkIwGM"> <!-- 卡片头 -->
+            <span class="card-t" data-page-node-id="i6Pv5AjCpm8a7doFHtUFTz">🎯 本合约信号 <span class="text-3xs text-txt-4" data-page-node-id="2EnmfAZJlqQxlI7kOEPNFq">(近 {{ marksDays }} 天)</span></span> <!-- 标题+回看天数 -->
+            <span class="flex-1" data-page-node-id="2WAWpaxOsPL7KPvJGwPzEt"></span> <!-- 弹性占位 -->
+            <span class="badge border-up/40 bg-up/10 text-up" data-page-node-id="UvF3KGOamU5jO2OGbf5zi4">买 {{ sigN.buy }}</span> <!-- 买入计数 -->
+            <span class="badge border-gold/40 bg-gold/10 text-gold" data-page-node-id="IXwAnZt6haAgCBGKJyNgaV">加 {{ sigN.add }}</span> <!-- 加仓计数 -->
+            <span class="badge border-ink-500 bg-ink-750 text-txt-2" data-page-node-id="jC1opxpGsCM8c9GjtT0SG7">平 {{ sigN.close }}</span> <!-- 平仓计数 -->
           </div>
-          <div class="max-h-[260px] overflow-y-auto" data-page-node-id="UGVAjHKqY5LZxbat9GTNZP">
-            <table class="tbl" data-page-node-id="v5Mh1QXTxOPCD6FLy0aInW">
-              <thead data-page-node-id="DAYRH0kWfQZzTDBEqG7GUW"><tr data-page-node-id="p1dgm91EWLX9X4fOjw7X75"><th data-page-node-id="xAUWXkz7yIdLuBW3mIUap6">时间</th><th data-page-node-id="SIOnk788tjEDcBx0wWUcyz">类型</th><th class="text-right" data-page-node-id="yqg9YSOBRQ1Kdv4JFlgHAY">价格</th><th class="text-right" data-page-node-id="QFuL2Tuba6lYbxljv40ICH">盈亏</th><th data-page-node-id="gLs3AtHlg9UgxpJboW2im0">说明</th></tr></thead>
-              <tbody data-page-node-id="0GKCdXtkzZbmEcJQQQzqvk">
-                <tr v-for="(m,i) in markRows" :key="i" data-page-node-id="c7ELGX77HwxWHrHELi00u4">
-                  <td class="num text-txt-3" data-page-node-id="j5MHc8cNMooyTEDxOV1NPT">{{ ts(m.t) }}</td>
-                  <td data-page-node-id="sGVEvRXiS7E7rkeOjvM735"><span class="badge" :class="kindCls(m.kind)" data-page-node-id="2BU60h57x7W9ODeINbZQnP">{{ kindTxt(m.kind) }}</span></td>
-                  <td class="num text-right" data-page-node-id="nZ3vGdHm7ALarF7lQkhFlq">{{ fmtPx(m.px) }}</td>
-                  <td class="num text-right" :class="profitCls(m.profit)">{{ m.profit==null?'—':(m.profit>=0?'+':'')+m.profit.toFixed(3) }}</td>
-                  <td class="text-2xs text-txt-3" data-page-node-id="aOZEkLn7Ym0pfgNxu5NcWD">{{ m.strat || '—' }}</td>
+          <div class="max-h-[260px] overflow-y-auto" data-page-node-id="UGVAjHKqY5LZxbat9GTNZP"> <!-- 表格滚动容器 -->
+            <table class="tbl" data-page-node-id="v5Mh1QXTxOPCD6FLy0aInW"> <!-- 信号表 -->
+              <thead data-page-node-id="DAYRH0kWfQZzTDBEqG7GUW"><tr data-page-node-id="p1dgm91EWLX9X4fOjw7X75"><th data-page-node-id="xAUWXkz7yIdLuBW3mIUap6">时间</th><th data-page-node-id="SIOnk788tjEDcBx0wWUcyz">类型</th><th class="text-right" data-page-node-id="yqg9YSOBRQ1Kdv4JFlgHAY">价格</th><th class="text-right" data-page-node-id="QFuL2Tuba6lYbxljv40ICH">盈亏</th><th data-page-node-id="gLs3AtHlg9UgxpJboW2im0">说明</th></tr></thead> <!-- 表头一行 -->
+              <tbody data-page-node-id="0GKCdXtkzZbmEcJQQQzqvk"> <!-- 表体 -->
+                <tr v-for="(m,i) in markRows" :key="i" data-page-node-id="c7ELGX77HwxWHrHELi00u4"> <!-- 信号行循环 -->
+                  <td class="num text-txt-3" data-page-node-id="j5MHc8cNMooyTEDxOV1NPT">{{ ts(m.t) }}</td> <!-- 信号时间 -->
+                  <td data-page-node-id="sGVEvRXiS7E7rkeOjvM735"><span class="badge" :class="kindCls(m.kind)" data-page-node-id="2BU60h57x7W9ODeINbZQnP">{{ kindTxt(m.kind) }}</span></td> <!-- 类型徽章 -->
+                  <td class="num text-right" data-page-node-id="nZ3vGdHm7ALarF7lQkhFlq">{{ fmtPx(m.px) }}</td> <!-- 信号价格 -->
+                  <td class="num text-right" :class="profitCls(m.profit)">{{ m.profit==null?'—':(m.profit>=0?'+':'')+m.profit.toFixed(3) }}</td> <!-- 平仓盈亏(着色) -->
+                  <td class="text-2xs text-txt-3" data-page-node-id="aOZEkLn7Ym0pfgNxu5NcWD">{{ m.strat || '—' }}</td> <!-- 策略说明 -->
                 </tr>
-                <tr v-if="!markRows.length" data-page-node-id="uE0hVC4IJBNgSL7MrWIOfv"><td colspan="5" class="py-6 text-center text-2xs text-txt-4" data-page-node-id="97B7yrNWr8d0rCJhl86nhC">该区间无交易信号</td></tr>
+                <tr v-if="!markRows.length" data-page-node-id="uE0hVC4IJBNgSL7MrWIOfv"><td colspan="5" class="py-6 text-center text-2xs text-txt-4" data-page-node-id="97B7yrNWr8d0rCJhl86nhC">该区间无交易信号</td></tr> <!-- 空信号占位 -->
               </tbody>
             </table>
           </div>
         </div>
 
-        <div class="card" data-page-node-id="Nx79STGdSFTpWjrp0wix5Y">
-          <div class="card-h" data-page-node-id="OB1gvIvFfGC125AACeHqiT">
-            <span class="card-t" data-page-node-id="805CsS8AAFIoaCaDw15ny9">📐 算法转折点 <span class="text-3xs text-txt-4" data-page-node-id="6abJg1SEWI7YTXvgqFIr4r">(ZigZag + 力学, 与引擎同源)</span></span>
-            <span class="flex-1" data-page-node-id="oY82sO90dMsZrxOO3JAsir"></span>
-            <span class="badge border-ink-500 bg-ink-750 text-txt-3" :title="'底部下跌腿动能 KE 的 75 分位阈值(尖转折线) · KE ≥ 此值才算金▲'" data-page-node-id="WFBnT0h3OkdmuZ1kDEs4jF">阈值 {{ th?th.toFixed(1):'--' }}</span>
-            <span class="badge border-gold/40 bg-gold/10 text-gold" title="本窗口内经阈值确认的金▲数量" data-page-node-id="eRzqlanVHBh23PoqtkFKzE">金▲ {{ goldN }}</span>
-            <span class="badge border-violet/40 bg-violet/10 text-violet" data-page-node-id="DgXADvsFPgwCajBdwZBNLF">{{ pivots.length }} 个</span>
+        <div class="card" data-page-node-id="Nx79STGdSFTpWjrp0wix5Y"> <!-- 算法转折点卡片 -->
+          <div class="card-h" data-page-node-id="OB1gvIvFfGC125AACeHqiT"> <!-- 卡片头 -->
+            <span class="card-t" data-page-node-id="805CsS8AAFIoaCaDw15nyi">📐 算法转折点 <span class="text-3xs text-txt-4" data-page-node-id="6abJg1SEWI7YTXvgqFIr4r">(ZigZag + 力学, 与引擎同源)</span></span> <!-- 标题+来源说明 -->
+            <span class="flex-1" data-page-node-id="oY82sO90dMsZrxOO3JAsir"></span> <!-- 弹性占位 -->
+            <span class="badge border-ink-500 bg-ink-750 text-txt-3" :title="'底部下跌腿动能 KE 的 75 分位阈值(尖转折线) · KE ≥ 此值才算金▲'" data-page-node-id="WFBnT0h3OkdmuZ1kDEs4jF">阈值 {{ th?th.toFixed(1):'--' }}</span> <!-- 金▲KE阈值徽章 -->
+            <span class="badge border-gold/40 bg-gold/10 text-gold" title="本窗口内经阈值确认的金▲数量" data-page-node-id="eRzqlanVHBh23PoqtkFKzE">金▲ {{ goldN }}</span> <!-- 金▲计数徽章 -->
+            <span class="badge border-violet/40 bg-violet/10 text-violet" data-page-node-id="DgXADvsFPgwCajBdwZBNLF">{{ pivots.length }} 个</span> <!-- 转折点总数 -->
           </div>
-          <div class="max-h-[260px] overflow-y-auto" data-page-node-id="mipIQeaGmCJ4QKDKb5j1CT">
-            <table class="tbl" data-page-node-id="ZtqiIcX8u7maOe7LG0X3gf">
-              <thead data-page-node-id="BraQUAFCbyY1Yv0kVO3GNy"><tr data-page-node-id="HGPkcBVoy8G49ALvUvbVZX"><th data-page-node-id="klm1E9PDDAg8AJv1QT08PP">时间</th><th data-page-node-id="9UNtKPz4WT8JF0MavyPy0l">类型</th><th class="text-right" data-page-node-id="QjhGPvq7oZqkH4C0TkuMtE">价格</th><th class="text-right" data-page-node-id="MwvzyIMBHHabqMSfG9wROw">KE=½mv²</th><th class="text-right" data-page-node-id="59uHsiCfVG9P3RxyZdC4dg">动能分位</th><th class="text-right" data-page-node-id="lOAydVts5OAhocYwzWkxYa">F=mg</th><th class="text-right" data-page-node-id="d3nwhbpA1AUy2rTZMViaxg">角°</th></tr></thead>
-              <tbody data-page-node-id="e0uuMGk1PkFEq9iQu3Pbe0">
-                <tr v-for="(p,i) in pivRows" :key="i" data-page-node-id="IXQeNH5onykOubwAVlFcoG">
-                  <td class="num text-txt-3" data-page-node-id="SoJxtYa9SdKZ7iFcCi0RBA">{{ ts(p.t) }}</td>
-                  <td data-page-node-id="P8738VMGidoDt5YCBEjAPd">
-                    <span class="badge" :class="p.type===0?'border-up/40 bg-up/10 text-up':'border-info/40 bg-info/10 text-info'" data-page-node-id="KNJ2CmVzh0FZZeWCLmEkZU">{{ p.type===0?'底':'顶' }}</span>
-                    <span v-if="isGold(p)" class="badge ml-1 border-gold/40 bg-gold/10 text-gold" data-page-node-id="LXFdfHgTNi5y4PVHFNPi0R">金▲</span>
+          <div class="max-h-[260px] overflow-y-auto" data-page-node-id="mipIQeaGmCJ4QKDKb5j1CT"> <!-- 表格滚动容器 -->
+            <table class="tbl" data-page-node-id="ZtqiIcX8u7maOe7LG0X3gf"> <!-- 转折点表 -->
+              <thead data-page-node-id="BraQUAFCbyY1Yv0kVO3GNy"><tr data-page-node-id="HGPkcBVoy8G49ALvUvbVZX"><th data-page-node-id="klm1E9PDDAg8AJv1QT08PP">时间</th><th data-page-node-id="9UNtKPz4WT8JF0MavyPy0l">类型</th><th class="text-right" data-page-node-id="QjhGPvq7oZqkH4C0TkuMtE">价格</th><th class="text-right" data-page-node-id="MwvzyIMBHHabqMSfG9wROw">KE=½mv²</th><th class="text-right" data-page-node-id="59uHsiCfVG9P3RxyZdC4dg">动能分位</th><th class="text-right" data-page-node-id="lOAydVts5OAhocYwzWkxYa">F=mg</th><th class="text-right" data-page-node-id="d3nwhbpA1AUy2rTZMViaxg">角°</th></tr></thead> <!-- 表头一行 -->
+              <tbody data-page-node-id="e0uuMGk1PkFEq9iQu3Pbe0"> <!-- 表体 -->
+                <tr v-for="(p,i) in pivRows" :key="i" data-page-node-id="IXQeNH5onykOubwAVlFcoG"> <!-- 转折点行循环 -->
+                  <td class="num text-txt-3" data-page-node-id="SoJxtYa9SdKZ7iFcCi0RBA">{{ ts(p.t) }}</td> <!-- 转折时间 -->
+                  <td data-page-node-id="P8738VMGidoDt5YCBEjAPd"> <!-- 类型单元格 -->
+                    <span class="badge" :class="p.type===0?'border-up/40 bg-up/10 text-up':'border-info/40 bg-info/10 text-info'" data-page-node-id="KNJ2CmVzh0FZZeWCLmEkZU">{{ p.type===0?'底':'顶' }}</span> <!-- 底/顶徽章 -->
+                    <span v-if="isGold(p)" class="badge ml-1 border-gold/40 bg-gold/10 text-gold" data-page-node-id="LXFdfHgTNi5y4PVHFNPi0R">金▲</span> <!-- 金▲徽章(方法判定) -->
                   </td>
-                  <td class="num text-right" data-page-node-id="o5lPaiggBwacJYbiEG7hEA">{{ fmtPx(p.p) }}</td>
-                  <td class="num text-right text-gold" data-page-node-id="fHAltVbdPOD0Uo90rg8xVQ">{{ p.ke?p.ke.toFixed(1):'—' }}</td>
-                  <td class="num text-right" :class="pctlCls(p.pctl)">{{ p.pctl!=null?'P'+p.pctl:'—' }}</td>
-                  <td class="num text-right text-txt-2" data-page-node-id="yZmbJ6zt6GkYT6MLMymZDm">{{ p.f?p.f.toFixed(2):'—' }}</td>
-                  <td class="num text-right text-txt-3" data-page-node-id="182SniPq6rKCuYQf4F6Nkx">{{ p.ang?p.ang.toFixed(1):'—' }}</td>
+                  <td class="num text-right" data-page-node-id="o5lPaiggBwacJYbiEG7hEA">{{ fmtPx(p.p) }}</td> <!-- 转折价格 -->
+                  <td class="num text-right text-gold" data-page-node-id="fHAltVbdPOD0Uo90rg8xVQ">{{ p.ke?p.ke.toFixed(1):'—' }}</td> <!-- 动能KE值 -->
+                  <td class="num text-right" :class="pctlCls(p.pctl)">{{ p.pctl!=null?'P'+p.pctl:'—' }}</td> <!-- 动能分位(≥75金色) -->
+                  <td class="num text-right text-txt-2" data-page-node-id="yZmbJ6zt6GkYT6MLMymZDm">{{ p.f?p.f.toFixed(2):'—' }}</td> <!-- 重力F值 -->
+                  <td class="num text-right text-txt-3" data-page-node-id="182SniPq6rKCuYQf4F6Nkx">{{ p.ang?p.ang.toFixed(1):'—' }}</td> <!-- 转折角度 -->
                 </tr>
-                <tr v-if="!pivRows.length" data-page-node-id="MPEszUBAoH9dePWKkekP0R"><td colspan="7" class="py-6 text-center text-2xs text-txt-4" data-page-node-id="i1noUtCJWwvZEXiwTpc43Q">无转折点</td></tr>
+                <tr v-if="!pivRows.length" data-page-node-id="MPEszUBAoH9dePWKkekP0R"><td colspan="7" class="py-6 text-center text-2xs text-txt-4" data-page-node-id="i1noUtCJWwvZEXiwTpc43Q">无转折点</td></tr> <!-- 空转折点占位 -->
               </tbody>
             </table>
           </div>
-          <div class="border-t border-ink-600/60 px-3 py-2 text-3xs leading-relaxed text-txt-4" data-page-node-id="oF2xUYgSRDTsH4tKQNmeED">
-            <b class="text-txt-3" data-page-node-id="1VihDvm0AtvgFSv7SsZQh2">KE=½mv²</b> 是「走进这个转折点的那一段行情」的动能：m=该段均量，v=|Δ价|÷(ATR14×根数)，即<b class="text-txt-3" data-page-node-id="jG0UgKyEkeAAnFgYZvVcee">单位时间和波动率下的速度</b>。<br data-page-node-id="5eXDUs98krTKNnRGz0szl0">
-            <b class="text-violet" data-page-node-id="j8IMnRNSAhRIHCiO5KiuuX">底点</b>的 KE = <b class="text-up" data-page-node-id="PqFe0s5mV76BBAydSRxsoj">下跌腿</b>动能 → <b class="text-txt-3" data-page-node-id="dzwOZNclrV66g4ZUbcRCf9">越大 = 跌得越急</b>，越容易 V 型反转（实测 60 合约 700 个底：KE 前 25% 的底，后续 6 根超额收益 <b class="text-up" data-page-node-id="ZwPgLBckw0uBWhmDNmUAkq">+0.86%</b>，后 25% 仅 +0.57%）。<br data-page-node-id="C4HMaqiOedFhA6Y74vgpil">
-            <b class="text-info" data-page-node-id="1nuuSsaQyl2frLbaOBPwPb">顶点</b>的 KE = <b class="text-dn" data-page-node-id="05pHQtwg6WguCV3lTCABbl">上涨腿</b>动能 → 越大越容易回落。<br data-page-node-id="A1AUyv6nQSRaYHpeSdRG7A">
-            KE 是绝对量（量纲含成交量），<b class="text-txt-3" data-page-node-id="NBzV7Z2ygvdmx6WrJsbrp8">只在本合约内有意义</b>，跨合约不可比，所以看「动能分位 P」：P≥75 才算金▲。
+          <div class="border-t border-ink-600/60 px-3 py-2 text-3xs leading-relaxed text-txt-4" data-page-node-id="oF2xUYgSRDTsH4tKQNmeED"> <!-- KE 公式说明区 -->
+            <b class="text-txt-3" data-page-node-id="1VihDvm0AtvgFSv7SsZQh2">KE=½mv²</b> 是「走进这个转折点的那一段行情」的动能：m=该段均量，v=|Δ价|÷(ATR14×根数)，即<b class="text-txt-3" data-page-node-id="jG0UgKyEkeAAnFgYZvVcee">单位时间和波动率下的速度</b>。<br data-page-node-id="5eXDUs98krTKNnRGz0szl0"> <!-- KE 定义 -->
+            <b class="text-violet" data-page-node-id="j8IMnRNSAhRIHCiO5KiuuX">底点</b>的 KE = <b class="text-up" data-page-node-id="PqFe0s5mV76BBAydSRxsoj">下跌腿</b>动能 → <b class="text-txt-3" data-page-node-id="dzwOZNclrV66g4ZUbcRCf9">越大 = 跌得越急</b>，越容易 V 型反转（实测 60 合约 700 个底：KE 前 25% 的底，后续 6 根超额收益 <b class="text-up" data-page-node-id="ZwPgLBckw0uBWhmDNmUAkq">+0.86%</b>，后 25% 仅 +0.57%）。<br data-page-node-id="C4HMaqiOedFhA6Y74vgpil"> <!-- 底点KE解读 -->
+            <b class="text-info" data-page-node-id="1nuuSsaQyl2frLbaOBPwPb">顶点</b>的 KE = <b class="text-dn" data-page-node-id="05pHQtwg6WguCV3lTCABbl">上涨腿</b>动能 → 越大越容易回落。<br data-page-node-id="A1AUyv6nQSRaYHpeSdRG7A"> <!-- 顶点KE解读 -->
+            KE 是绝对量（量纲含成交量），<b class="text-txt-3" data-page-node-id="NBzV7Z2ygvdmx6WrJsbrp8">只在本合约内有意义</b>，跨合约不可比，所以看「动能分位 P」：P≥75 才算金▲。 <!-- 分位说明 -->
           </div>
         </div>
       </div>
     </section>
 
     <!-- ── 右：持仓 / 网格 / 守护 ── -->
-    <aside class="flex flex-col gap-3" data-page-node-id="DMRnZsNhDV8TOrtkCxwj8Q">
+    <aside class="flex flex-col gap-3" data-page-node-id="DMRnZsNhDV8TOrtkCxwj8Q"> <!-- 右侧栏纵向排列 -->
 
       <!-- 加仓日志 -->
-      <div class="card" data-page-node-id="0fHsHNisvQ8nNffMDe2omD">
-        <div class="card-h" data-page-node-id="iFxuaNXD8VQyxfC17nw0W9">
-          <span class="card-t" data-page-node-id="cLuLipyxHnLMNTZA3wL2yH">📜 加仓触发日志</span>
-          <span class="flex-1" data-page-node-id="CGzeypBAcTdyzLiXqzffvY"></span>
-          <span class="badge border-ink-600 bg-ink-750 text-txt-3" data-page-node-id="B7qGOUdas85HuJX2tkcYC9">{{ gridLogs.length }}</span>
+      <div class="card" data-page-node-id="0fHsHNisvQ8nNffMDe2omD"> <!-- 加仓日志卡片 -->
+        <div class="card-h" data-page-node-id="iFxuaNXD8VQyxfC17nw0W9"> <!-- 卡片头 -->
+          <span class="card-t" data-page-node-id="cLuLipyxHnLMNTZA3wL2yH">📜 加仓触发日志</span> <!-- 标题 -->
+          <span class="flex-1" data-page-node-id="CGzeypBAcTdyzLiXqzffvY"></span> <!-- 弹性占位 -->
+          <span class="badge border-ink-600 bg-ink-750 text-txt-3" data-page-node-id="B7qGOUdas85HuJX2tkcYC9">{{ gridLogs.length }}</span> <!-- 日志条数 -->
         </div>
-        <div class="max-h-[220px] overflow-y-auto p-2" data-page-node-id="p2EdFaeqFlHEW0PeJFhxKH">
-          <div v-for="(l,i) in gridLogs" :key="i" class="mb-1 rounded-lg border border-ink-600/60 bg-ink-750/50 px-2 py-1.5 last:mb-0" data-page-node-id="hFVJORHd1h8lRNvyFBQhi0">
-            <div class="flex items-center gap-1.5" data-page-node-id="T4AdfvTjuKcMnx1nC2uh07">
-              <span class="badge border-gold/40 bg-gold/10 text-gold" data-page-node-id="IJmVBGW2L3gVL66pl5d1AX">{{ l.kind==='gold'?'黄金坑':'信号' }}</span>
-              <span class="text-[11px] font-bold" data-page-node-id="OnTcQwj8A7jF48HgUzKFvK">{{ short(l.inst_id) }}</span>
-              <span class="flex-1" data-page-node-id="XKUgY01MPyAU5QW3ZbcDtE"></span>
-              <span class="num text-3xs text-txt-4" data-page-node-id="JcP8hE8pFwYYLuMGAcP99S">{{ l.log_time }}</span>
+        <div class="max-h-[220px] overflow-y-auto p-2" data-page-node-id="p2EdFaeqFlHEW0PeJFhxKH"> <!-- 日志滚动容器 -->
+          <div v-for="(l,i) in gridLogs" :key="i" class="mb-1 rounded-lg border border-ink-600/60 bg-ink-750/50 px-2 py-1.5 last:mb-0" data-page-node-id="hFVJORHd1h8lRNvyFBQhi0"> <!-- 单条日志 -->
+            <div class="flex items-center gap-1.5" data-page-node-id="T4AdfvTjuKcMnx1nC2uh07"> <!-- 第一行 -->
+              <span class="badge border-gold/40 bg-gold/10 text-gold" data-page-node-id="IJmVBGW2L3gVL66pl5d1AX">{{ l.kind==='gold'?'黄金坑':'信号' }}</span> <!-- 触发类型徽章 -->
+              <span class="text-[11px] font-bold" data-page-node-id="OnTcQwj8A7jF48HgUzKFvK">{{ short(l.inst_id) }}</span> <!-- 合约短名 -->
+              <span class="flex-1" data-page-node-id="XKUgY01MPyAU5QW3ZbcDtE"></span> <!-- 弹性占位 -->
+              <span class="num text-3xs text-txt-4" data-page-node-id="JcP8hE8pFwYYLuMGAcP99S">{{ l.log_time }}</span> <!-- 日志时间 -->
             </div>
-            <div class="mt-0.5 flex items-center gap-2 text-3xs text-txt-4" data-page-node-id="YGFSJS79EA9RmlQVmY55HW">
-              <span data-page-node-id="0clS6KpPKvFiwo5laPVUEO">触发价 <b class="num text-txt-2" data-page-node-id="AtEyNoj7VRqQv7oktgipiI">{{ fmtPx(num(l.trigger_px)) }}</b></span>
-              <span data-page-node-id="uSDRF2LY4kJ3aTYU3XLl1I">加 <b class="num text-gold" data-page-node-id="wCQzkGgDEO30Ez7jawvlmH">+{{ num(l.add_usd).toFixed(2) }}U</b></span>
+            <div class="mt-0.5 flex items-center gap-2 text-3xs text-txt-4" data-page-node-id="YGFSJS79EA9RmlQVmY55HW"> <!-- 第二行 -->
+              <span data-page-node-id="0clS6KpPKvFiwo5laPVUEO">触发价 <b class="num text-txt-2" data-page-node-id="AtEyNoj7VRqQv7oktgipiI">{{ fmtPx(num(l.trigger_px)) }}</b></span> <!-- 触发价 -->
+              <span data-page-node-id="uSDRF2LY4kJ3aTYU3XLl1I">加 <b class="num text-gold" data-page-node-id="wCQzkGgDEO30Ez7jawvlmH">+{{ num(l.add_usd).toFixed(2) }}U</b></span> <!-- 加仓金额 -->
             </div>
-            <div v-if="l.note" class="mt-0.5 truncate text-3xs text-txt-4" :title="l.note" data-page-node-id="GJnoTul9cVAY3KhjrSAvx5">{{ l.note }}</div>
+            <div v-if="l.note" class="mt-0.5 truncate text-3xs text-txt-4" :title="l.note" data-page-node-id="GJnoTul9cVAY3KhjrSAvx5">{{ l.note }}</div> <!-- 备注(超长截断悬停全文) -->
           </div>
-          <div v-if="!gridLogs.length" class="py-6 text-center text-2xs text-txt-4" data-page-node-id="jegRGurW3pzh0yGDfrVHty">暂无记录</div>
+          <div v-if="!gridLogs.length" class="py-6 text-center text-2xs text-txt-4" data-page-node-id="jegRGurW3pzh0yGDfrVHty">暂无记录</div> <!-- 空日志占位 -->
         </div>
       </div>
 
       <!-- 守护 -->
-      <div class="card" data-page-node-id="MMPI2Q9JTI23SRNYzdQzcj">
-        <div class="card-h" data-page-node-id="2ZVem3BUiev7FVGCPGuwbL">
-          <span class="card-t" data-page-node-id="Mqc8v5Oq46EkSauMa2FDOz">🛡 守护状态</span>
-          <span class="flex-1" data-page-node-id="hAGsyNe266hrPMyVRdqTuo"></span>
-          <span class="badge" :class="guardBad?'border-dn/40 bg-dn/10 text-dn':'border-up/40 bg-up/10 text-up'" data-page-node-id="zCyES2kBGu78hqAKzhvJsf">{{ guardOk }}/{{ guardN }}</span>
+      <div class="card" data-page-node-id="MMPI2Q9JTI23SRNYzdQzcj"> <!-- 守护状态卡片 -->
+        <div class="card-h" data-page-node-id="2ZVem3BUiev7FVGCPGuwbL"> <!-- 卡片头 -->
+          <span class="card-t" data-page-node-id="Mqc8v5Oq46EkSauMa2FDOz">🛡 守护状态</span> <!-- 标题 -->
+          <span class="flex-1" data-page-node-id="hAGsyNe266hrPMyVRdqTuo"></span> <!-- 弹性占位 -->
+          <span class="badge" :class="guardBad?'border-dn/40 bg-dn/10 text-dn':'border-up/40 bg-up/10 text-up'" data-page-node-id="zCyES2kBGu78hqAKzhvJsf">{{ guardOk }}/{{ guardN }}</span> <!-- 存活/总数徽章 -->
         </div>
-        <div class="p-2" data-page-node-id="ErtNIMYwXuW9qJWeKYKD5I">
-          <div v-for="t in guardTargets" :key="t.key" class="mb-1 flex items-center gap-2 rounded-lg border border-ink-600/60 bg-ink-750/40 px-2 py-1.5 last:mb-0" data-page-node-id="OBf9CzJZg6UHdrtUShFZ19">
-            <span class="h-1.5 w-1.5 shrink-0 rounded-full" :class="t.ok?'animate-pulse2 bg-dn':'bg-up'" data-page-node-id="ksUlu02iLfxSTW13z8e4Zt"></span>
-            <span class="text-[11px] font-semibold" data-page-node-id="TAfwXSbI6DL0iawM6A9AVv">{{ t.label }}</span>
-            <span class="flex-1" data-page-node-id="asYGbI1MXuUUOTa2lp3W5A"></span>
-            <span class="num text-3xs text-txt-4" data-page-node-id="WamhiZwmyvgOXAHFJSh05n">pid {{ t.pid||'—' }}</span>
-            <span class="num badge" :class="t.restarts?'border-gold/40 bg-gold/10 text-gold':'border-ink-600 bg-ink-750 text-txt-4'" data-page-node-id="CcpFLwfGR75CaYUwwnKGms">重启 {{ t.restarts }}</span>
+        <div class="p-2" data-page-node-id="ErtNIMYwXuW9qJWeKYKD5I"> <!-- 内容区 -->
+          <div v-for="t in guardTargets" :key="t.key" class="mb-1 flex items-center gap-2 rounded-lg border border-ink-600/60 bg-ink-750/40 px-2 py-1.5 last:mb-0" data-page-node-id="OBf9CzJZg6UHdrtUShFZ19"> <!-- 单个守护目标 -->
+            <span class="h-1.5 w-1.5 shrink-0 rounded-full" :class="t.ok?'animate-pulse2 bg-dn':'bg-up'" data-page-node-id="ksUlu02iLfxSTW13z8e4Zt"></span> <!-- 存活状态灯 -->
+            <span class="text-[11px] font-semibold" data-page-node-id="TAfwXSbI6DL0iawM6A9AVv">{{ t.label }}</span> <!-- 目标名称 -->
+            <span class="flex-1" data-page-node-id="asYGbI1MXuUUOTa2lp3W5A"></span> <!-- 弹性占位 -->
+            <span class="num text-3xs text-txt-4" data-page-node-id="WamhiZwmyvgOXAHFJSh05n">pid {{ t.pid||'—' }}</span> <!-- 进程号 -->
+            <span class="num badge" :class="t.restarts?'border-gold/40 bg-gold/10 text-gold':'border-ink-600 bg-ink-750 text-txt-4'" data-page-node-id="CcpFLwfGR75CaYUwwnKGms">重启 {{ t.restarts }}</span> <!-- 重启次数(非零金色) -->
           </div>
-          <div v-if="!guardTargets.length" class="py-4 text-center text-2xs text-txt-4" data-page-node-id="taTAMOxHXChE1XVCLvhE9e">守护数据不可用</div>
-          <div v-if="guard && guard.ts" class="mt-2 flex items-center justify-between text-3xs text-txt-4" data-page-node-id="gWNB5eh1KBdyRbGxE3aaft">
-            <span data-page-node-id="93snh3tADja1p4I0Wmziy3">守护运行 {{ guard.uptime }}s</span>
-            <span class="num" data-page-node-id="nO3AoSmfo1hTRzWwBXIDaj">{{ guard.time }}</span>
+          <div v-if="!guardTargets.length" class="py-4 text-center text-2xs text-txt-4" data-page-node-id="taTAMOxHXChE1XVCLvhE9e">守护数据不可用</div> <!-- 空守护占位 -->
+          <div v-if="guard && guard.ts" class="mt-2 flex items-center justify-between text-3xs text-txt-4" data-page-node-id="gWNB5eh1KBdyRbGxE3aaft"> <!-- 守护元信息行 -->
+            <span data-page-node-id="93snh3tADja1p4I0Wmziy3">守护运行 {{ guard.uptime }}s</span> <!-- 运行时长 -->
+            <span class="num" data-page-node-id="nO3AoSmfo1hTRzWwBXIDaj">{{ guard.time }}</span> <!-- 状态时间 -->
           </div>
         </div>
       </div>
 
       <!-- 风控参数 -->
-      <div class="card" data-page-node-id="vyx9WpQikuRzuCTZlRfmak">
-        <div class="card-h" data-page-node-id="1CJFDTrWJfx3rdDb4x0w6N"><span class="card-t" data-page-node-id="cKBmYuqtDCa2AiHmfYzoqS">⚙ 风控铁律 <span class="text-3xs text-txt-4" data-page-node-id="jxK1Zq7dL7VGMGzpqtwYFB">(代码级硬锁)</span></span></div>
-        <div class="grid grid-cols-2 gap-px bg-ink-600/50" data-page-node-id="oKR0ByhrC9nbcsZzDVujwm">
-          <div v-for="p in params" :key="p.k" class="bg-ink-800 px-2.5 py-1.5" data-page-node-id="KTwBkSZyPmvJcN4qIcEdO7">
-            <div class="text-3xs text-txt-4" data-page-node-id="JEyUle4YNECcDXJBIer5K0">{{ p.k }}</div>
-            <div class="num text-[11px] font-bold text-txt-1" data-page-node-id="SLBM54H28QV0qX1c7HwJC5">{{ p.v }}</div>
+      <div class="card" data-page-node-id="vyx9WpQikuRzuCTZlRfmak"> <!-- 风控铁律卡片 -->
+        <div class="card-h" data-page-node-id="1CJFDTrWJfx3rdDb4x0w6N"><span class="card-t" data-page-node-id="cKBmYuqtDCa2AiHmfYzoqS">⚙ 风控铁律 <span class="text-3xs text-txt-4" data-page-node-id="jxK1Zq7dL7VGMGzpqtwYFB">(代码级硬锁)</span></span></div> <!-- 标题行 -->
+        <div class="grid grid-cols-2 gap-px bg-ink-600/50" data-page-node-id="oKR0ByhrC9nbcsZzDVujwm"> <!-- 参数两列网格 -->
+          <div v-for="p in params" :key="p.k" class="bg-ink-800 px-2.5 py-1.5" data-page-node-id="KTwBkSZyPmvJcN4qIcEdO7"> <!-- 单个参数格 -->
+            <div class="text-3xs text-txt-4" data-page-node-id="JEyUle4YNECcDXJBIer5K0">{{ p.k }}</div> <!-- 参数名 -->
+            <div class="num text-[11px] font-bold text-txt-1" data-page-node-id="SLBM54H28QV0qX1c7HwJC5">{{ p.v }}</div> <!-- 参数值 -->
           </div>
         </div>
       </div>
@@ -444,115 +463,115 @@
   </main>
 
   <!-- ═══════════ 图表设置抽屉 ═══════════ -->
-  <div v-if="setOpen" class="fixed inset-0 z-[60]" data-page-node-id="3j1PcNwhqkD89jmm6aeHAK">
-    <div class="absolute inset-0 bg-black/55" @click="setOpen=false" data-page-node-id="Cyc4s0m6ErdZkkXnyiNWTE"></div>
-    <aside class="absolute right-0 top-0 flex h-full w-[322px] flex-col border-l border-ink-600 bg-ink-800 shadow-card" data-page-node-id="aaAzFE5RWpAu7kFZHdQiFO">
-      <div class="flex h-12 shrink-0 items-center gap-2 border-b border-ink-600 px-3" data-page-node-id="0EN1tmFrONIl0hscaIcZhb">
-        <span class="text-[13px] font-bold" data-page-node-id="SCPIDDxnyGK6w69m7yWCY2">⚙ 图表设置</span>
-        <span class="flex-1" data-page-node-id="D4X7KcbXTXVVvrSLv79V98"></span>
-        <button @click="resetCfg()" class="btn" title="恢复全部默认" data-page-node-id="ANZzC6rZjh5yF1aik0uEte">恢复默认</button>
-        <button @click="setOpen=false" class="ico-btn" data-page-node-id="8XWMxsnKMsP843ojSMkbHP">✕</button>
+  <div v-if="setOpen" class="fixed inset-0 z-[60]" data-page-node-id="3j1PcNwhqkD89jmm6aeHAK"> <!-- 抽屉容器(全屏遮罩+右侧面板) -->
+    <div class="absolute inset-0 bg-black/55" @click="setOpen=false" data-page-node-id="Cyc4s0m6ErdZkkXnyiNWTE"></div> <!-- 半透明遮罩(点击关闭) -->
+    <aside class="absolute right-0 top-0 flex h-full w-[322px] flex-col border-l border-ink-600 bg-ink-800 shadow-card" data-page-node-id="aaAzFE5RWpAu7kFZHdQiFO"> <!-- 右侧抽屉面板 -->
+      <div class="flex h-12 shrink-0 items-center gap-2 border-b border-ink-600 px-3" data-page-node-id="0EN1tmFrONIl0hscaIcZhb"> <!-- 抽屉头 -->
+        <span class="text-[13px] font-bold" data-page-node-id="SCPIDDxnyGK6w69m7yWCY2">⚙ 图表设置</span> <!-- 标题 -->
+        <span class="flex-1" data-page-node-id="D4X7KcbXTXVVvrSLv79V98"></span> <!-- 弹性占位 -->
+        <button @click="resetCfg()" class="btn" title="恢复全部默认" data-page-node-id="ANZzC6rZjh5yF1aik0uEte">恢复默认</button> <!-- 恢复默认按钮 -->
+        <button @click="setOpen=false" class="ico-btn" data-page-node-id="8XWMxsnKMsP843ojSMkbHP">✕</button> <!-- 关闭按钮 -->
       </div>
-      <div class="flex-1 overflow-y-auto p-3" data-page-node-id="0EgJKEUXPWd7Jq789D0dCI">
+      <div class="flex-1 overflow-y-auto p-3" data-page-node-id="0EgJKEUXPWd7Jq789D0dCI"> <!-- 抽屉滚动内容区 -->
 
-        <div class="setgrp" data-page-node-id="fdCLXT7896CI5ilHNXm1PJ">
-          <h4 data-page-node-id="m3BAptqyPPUkpvzXlWfHSc">图表样式</h4>
-          <div class="setrow" data-page-node-id="B67JxboVC9t1US5MI4fcJs"><span class="k" data-page-node-id="QgbzCbBEXCxVXsFIWrBo5O">图表类型</span>
-            <select class="sel" :value="cfg.type" @change="setCfgKey('type',$event.target.value)" data-page-node-id="Sa4KMR9j65XITTZcGwOR1e">
-              <option v-for="t in TYPES" :key="t[0]" :value="t[0]" data-page-node-id="YGG844X944h8Qts9I0UvhS">{{ t[1] }}</option>
+        <div class="setgrp" data-page-node-id="fdCLXT7896CI5ilHNXm1PJ"> <!-- 设置组: 图表样式 -->
+          <h4 data-page-node-id="m3BAptqyPPUkpvzXlWfHSc">图表样式</h4> <!-- 组标题 -->
+          <div class="setrow" data-page-node-id="B67JxboVC9t1US5MI4fcJs"><span class="k" data-page-node-id="QgbzCbBEXCxVXsFIWrBo5O">图表类型</span> <!-- 行标签 -->
+            <select class="sel" :value="cfg.type" @change="setCfgKey('type',$event.target.value)" data-page-node-id="Sa4KMR9j65XITTZcGwOR1e"> <!-- 类型下拉 -->
+              <option v-for="t in TYPES" :key="t[0]" :value="t[0]" data-page-node-id="YGG844X944h8Qts9I0UvhS">{{ t[1] }}</option> <!-- 类型选项 -->
             </select>
           </div>
-          <div class="setrow" data-page-node-id="XUCrlzCXkFdIbLY8zvOo6q"><span class="k" data-page-node-id="w4q9N7liK99n7Tbb8eBtJ3">涨跌配色</span>
-            <select class="sel" :value="cfg.updown" @change="setCfgKey('updown',$event.target.value)" data-page-node-id="S02e7g4M88cXOBW1UiY61L">
-              <option v-for="t in UPDOWN" :key="t[0]" :value="t[0]" data-page-node-id="i3LqLWFO3oKpvS7HaQ4eM5">{{ t[1] }}</option>
+          <div class="setrow" data-page-node-id="XUCrlzCXkFdIbLY8zvOo6q"><span class="k" data-page-node-id="w4q9N7liK99n7Tbb8eBtJ3">涨跌配色</span> <!-- 行标签 -->
+            <select class="sel" :value="cfg.updown" @change="setCfgKey('updown',$event.target.value)" data-page-node-id="S02e7g4M88cXOBW1UiY61L"> <!-- 配色下拉 -->
+              <option v-for="t in UPDOWN" :key="t[0]" :value="t[0]" data-page-node-id="i3LqLWFO3oKpvS7HaQ4eM5">{{ t[1] }}</option> <!-- 配色选项 -->
             </select>
           </div>
-          <div class="setrow" data-page-node-id="YuwPzhsCVdWZ5Gr7BUSMTD"><span class="k" data-page-node-id="mLa8pE4tCtpDOslV1SBYkj">网格线</span>
-            <input type="checkbox" class="h-3.5 w-3.5 accent-[#f0b90b]" :checked="cfg.grid" @change="setCfgKey('grid',$event.target.checked)" data-page-node-id="hP7emoOlRS3OjIgH84BHMz">
+          <div class="setrow" data-page-node-id="YuwPzhsCVdWZ5Gr7BUSMTD"><span class="k" data-page-node-id="mLa8pE4tCtpDOslV1SBYkj">网格线</span> <!-- 行标签 -->
+            <input type="checkbox" class="h-3.5 w-3.5 accent-[#f0b90b]" :checked="cfg.grid" @change="setCfgKey('grid',$event.target.checked)" data-page-node-id="hP7emoOlRS3OjIgH84BHMz"> <!-- 网格复选框 -->
           </div>
-          <div class="setrow" data-page-node-id="KuIUxOIWW7tX88JykZ7vhx"><span class="k" data-page-node-id="OWqP92z5yN7ahhNTC3hsrY">十字线磁吸</span>
-            <input type="checkbox" class="h-3.5 w-3.5 accent-[#f0b90b]" :checked="cfg.magnet" @change="setCfgKey('magnet',$event.target.checked)" data-page-node-id="rVKKVY6myl6OECJBbxevNj">
+          <div class="setrow" data-page-node-id="KuIUxOIWW7tX88JykZ7vhx"><span class="k" data-page-node-id="OWqP92z5yN7ahhNTC3hsrY">十字线磁吸</span> <!-- 行标签 -->
+            <input type="checkbox" class="h-3.5 w-3.5 accent-[#f0b90b]" :checked="cfg.magnet" @change="setCfgKey('magnet',$event.target.checked)" data-page-node-id="rVKKVY6myl6OECJBbxevNj"> <!-- 磁吸复选框 -->
           </div>
-          <div class="setrow" data-page-node-id="DfbZGVxf1cJuYQf4sE96xI"><span class="k" data-page-node-id="ueVobD56YuBITbVoOosPtJ">对数价格轴</span>
-            <input type="checkbox" class="h-3.5 w-3.5 accent-[#f0b90b]" :checked="cfg.log" @change="setCfgKey('log',$event.target.checked)" data-page-node-id="ILPFJzbmJoi0dQGT4pjsES">
+          <div class="setrow" data-page-node-id="DfbZGVxf1cJuYQf4sE96xI"><span class="k" data-page-node-id="ueVobD56YuBITbVoOosPtJ">对数价格轴</span> <!-- 行标签 -->
+            <input type="checkbox" class="h-3.5 w-3.5 accent-[#f0b90b]" :checked="cfg.log" @change="setCfgKey('log',$event.target.checked)" data-page-node-id="ILPFJzbmJoi0dQGT4pjsES"> <!-- 对数轴复选框 -->
           </div>
-          <div class="setrow" data-page-node-id="QuZMDlw8j6GMkRPhGBQ3TZ"><span class="k" data-page-node-id="b0Yv5nWHrddnHBlryPEi9o">K线间距 <b class="num text-txt-2" data-page-node-id="AYge0f4Xa1aaQ0jkNNf5Ac">{{ cfg.barSpacing }}</b></span>
-            <input type="range" min="2" max="24" step="1" class="w-[122px] accent-[#f0b90b]" :value="cfg.barSpacing" @input="setCfgKey('barSpacing',+$event.target.value)" data-page-node-id="pqZ4EBu4cBw3flEkjZRt4a">
+          <div class="setrow" data-page-node-id="QuZMDlw8j6GMkRPhGBQ3TZ"><span class="k" data-page-node-id="b0Yv5nWHrddnHBlryPEi9o">K线间距 <b class="num text-txt-2" data-page-node-id="AYge0f4Xa1aaQ0jkNNf5Ac">{{ cfg.barSpacing }}</b></span> <!-- 行标签+当前值 -->
+            <input type="range" min="2" max="24" step="1" class="w-[122px] accent-[#f0b90b]" :value="cfg.barSpacing" @input="setCfgKey('barSpacing',+$event.target.value)" data-page-node-id="pqZ4EBu4cBw3flEkjZRt4a"> <!-- 间距滑杆 -->
           </div>
-          <div class="setrow" data-page-node-id="qFApUfrk4T6kdGLHLbQsl6"><span class="k" data-page-node-id="9gu4b41PGDiz7JL1Tu2SS9">右侧留白 <b class="num text-txt-2" data-page-node-id="pZaV8H5BenkSlOvi4ZQtHe">{{ cfg.rightOffset }}</b></span>
-            <input type="range" min="0" max="40" step="1" class="w-[122px] accent-[#f0b90b]" :value="cfg.rightOffset" @input="setCfgKey('rightOffset',+$event.target.value)" data-page-node-id="SKuSb0mqmQAcDbrTpCaUAS">
+          <div class="setrow" data-page-node-id="qFApUfrk4T6kdGLHLbQsl6"><span class="k" data-page-node-id="9gu4b41PGDiz7JL1Tu2SS9">右侧留白 <b class="num text-txt-2" data-page-node-id="pZaV8H5BenkSlOvi4ZQtHe">{{ cfg.rightOffset }}</b></span> <!-- 行标签+当前值 -->
+            <input type="range" min="0" max="40" step="1" class="w-[122px] accent-[#f0b90b]" :value="cfg.rightOffset" @input="setCfgKey('rightOffset',+$event.target.value)" data-page-node-id="SKuSb0mqmQAcDbrTpCaUAS"> <!-- 留白滑杆 -->
           </div>
         </div>
 
-        <div class="setgrp" data-page-node-id="IapuCgcqpQZnE72J1afnyi">
-          <h4 data-page-node-id="4rvPWtuAVa4ImqZHICZ78t">主图均线</h4>
-          <div class="setrow" data-page-node-id="mNMNrJdUzjq8tU2YvClnRA"><span class="k" data-page-node-id="MfmHZKcB7WR6bORAFDILtt">MA 周期</span>
-            <input class="inp" :value="cfg.ma.join(',')" @change="setMaStr($event)" placeholder="5,10,20,60" data-page-node-id="LjSjIdTTRoyaL0M05BAiT6">
+        <div class="setgrp" data-page-node-id="IapuCgcqpQZnE72J1afnyi"> <!-- 设置组: 主图均线 -->
+          <h4 data-page-node-id="4rvPWtuAVa4ImqZHICZ78t">主图均线</h4> <!-- 组标题 -->
+          <div class="setrow" data-page-node-id="mNMNrJdUzjq8tU2YvClnRA"><span class="k" data-page-node-id="MfmHZKcB7WR6bORAFDILtt">MA 周期</span> <!-- 行标签 -->
+            <input class="inp" :value="cfg.ma.join(',')" @change="setMaStr($event)" placeholder="5,10,20,60" data-page-node-id="LjSjIdTTRoyaL0M05BAiT6"> <!-- MA 周期输入 -->
           </div>
-          <div class="setrow" data-page-node-id="L9nOK4yyT2h3vOZKLtf5R0"><span class="k" data-page-node-id="98bZNwwgRkMFsoaqxlQJvi">EMA 周期</span>
-            <input class="inp" :value="cfg.ema.join(',')" @change="setEmaStr($event)" placeholder="7,25,99" data-page-node-id="EpP2Memx5FFHhVif0ZDQ0a">
+          <div class="setrow" data-page-node-id="L9nOK4yyT2h3vOZKLtf5R0"><span class="k" data-page-node-id="98bZNwwgRkMFsoaqxlQJvi">EMA 周期</span> <!-- 行标签 -->
+            <input class="inp" :value="cfg.ema.join(',')" @change="setEmaStr($event)" placeholder="7,25,99" data-page-node-id="EpP2Memx5FFHhVif0ZDQ0a"> <!-- EMA 周期输入 -->
           </div>
-          <div class="mt-1 text-3xs leading-relaxed text-txt-4" data-page-node-id="66MjR0kiPCjVGD4tKrR7wo">逗号分隔，最多 6 条；留空即关闭该组。</div>
+          <div class="mt-1 text-3xs leading-relaxed text-txt-4" data-page-node-id="66MjR0kiPCjVGD4tKrR7wo">逗号分隔，最多 6 条；留空即关闭该组。</div> <!-- 输入说明 -->
         </div>
 
-        <div class="setgrp" data-page-node-id="lxacnomchs4T5R4ZAxKbSo">
-          <h4 data-page-node-id="YkrLIktxVN1hZhRgYkUu4b">布林带 BOLL</h4>
-          <div class="setrow" data-page-node-id="loFjFYxnX3tw5ESgSB3Xhf"><span class="k" data-page-node-id="n0uLlEnO3o6b8f34DzSOWY">开启</span>
-            <input type="checkbox" class="h-3.5 w-3.5 accent-[#f0b90b]" :checked="cfg.boll.on" @change="toggleBOLL()" data-page-node-id="rxSCQZb75g4RDWVuR3GY9G">
+        <div class="setgrp" data-page-node-id="lxacnomchs4T5R4ZAxKbSo"> <!-- 设置组: 布林带 -->
+          <h4 data-page-node-id="YkrLIktxVN1hZhRgYkUu4b">布林带 BOLL</h4> <!-- 组标题 -->
+          <div class="setrow" data-page-node-id="loFjFYxnX3tw5ESgSB3Xhf"><span class="k" data-page-node-id="n0uLlEnO3o6b8f34DzSOWY">开启</span> <!-- 行标签 -->
+            <input type="checkbox" class="h-3.5 w-3.5 accent-[#f0b90b]" :checked="cfg.boll.on" @change="toggleBOLL()" data-page-node-id="rxSCQZb75g4RDWVuR3GY9G"> <!-- BOLL 开关 -->
           </div>
-          <div class="setrow" data-page-node-id="1Z7HkrXiNCTanmDEtObol4"><span class="k" data-page-node-id="lld38cHtHYebBGkKqbKvse">周期 N</span><input class="inp" type="number" min="2" max="200" :value="cfg.boll.n" @change="setBollN($event)" data-page-node-id="fhmZH5fTwC7WJGLaZZMQfe"></div>
-          <div class="setrow" data-page-node-id="xcU8GFcIu4a5oDVQ81OPgQ"><span class="k" data-page-node-id="Y90DyJ3U2dwh1wZqEyUD8i">倍数 K</span><input class="inp" type="number" step="0.1" min="0.5" max="5" :value="cfg.boll.k" @change="setBollK($event)" data-page-node-id="5knBsaOAa4lwZSt9cxbNqY"></div>
+          <div class="setrow" data-page-node-id="1Z7HkrXiNCTanmDEtObol4"><span class="k" data-page-node-id="lld38cHtHYebBGkKqbKvse">周期 N</span><input class="inp" type="number" min="2" max="200" :value="cfg.boll.n" @change="setBollN($event)" data-page-node-id="fhmZH5fTwC7WJGLaZZMQfe"></div> <!-- N 输入 -->
+          <div class="setrow" data-page-node-id="xcU8GFcIu4a5oDVQ81OPgQ"><span class="k" data-page-node-id="Y90DyJ3U2dwh1wZqEyUD8i">倍数 K</span><input class="inp" type="number" step="0.1" min="0.5" max="5" :value="cfg.boll.k" @change="setBollK($event)" data-page-node-id="5knBsaOAa4lwZSt9cxbNqY"></div> <!-- K 输入 -->
         </div>
 
-        <div class="setgrp" data-page-node-id="bAPLZaOHEecIZp0OdZMgjY">
-          <h4 data-page-node-id="o3GWzeJaLARsqSmCgEGDLX">副图指标</h4>
-          <div class="setrow" data-page-node-id="uC4D9TwDTaCydVSq5GpGjo"><span class="k" data-page-node-id="mKPc8a5HLfcAtE5QIAlu8q">RSI 周期</span><input class="inp" type="number" min="2" max="100" :value="cfg.rsiN" @change="setRsiN($event)" data-page-node-id="7kT752OQxwy48AjUYpL0nv"></div>
-          <div class="setrow" data-page-node-id="8tbg9h0Kuur0m1LyZHX049"><span class="k" data-page-node-id="vjuBoAiJgvLq3KW8LfudZo">KDJ 参数</span><input class="inp" :value="cfg.kdjN.join(',')" @change="setKdjStr($event)" placeholder="9,3,3" data-page-node-id="BjiYiHhe1jFEmM2eKLAidm"></div>
-          <div class="mt-1 text-3xs leading-relaxed text-txt-4" data-page-node-id="4oUOsuA6WDSt4TNtUkCvjg">MACD 由 C++ 内核预计算（与引擎同口径）；MA/EMA/BOLL/RSI/KDJ 由浏览器本地实时计算。副图最多同时开 3 个。</div>
+        <div class="setgrp" data-page-node-id="bAPLZaOHEecIZp0OdZMgjY"> <!-- 设置组: 副图指标 -->
+          <h4 data-page-node-id="o3GWzeJaLARsqSmCgEGDLX">副图指标</h4> <!-- 组标题 -->
+          <div class="setrow" data-page-node-id="uC4D9TwDTaCydVSq5GpGjo"><span class="k" data-page-node-id="mKPc8a5HLfcAtE5QIAlu8q">RSI 周期</span><input class="inp" type="number" min="2" max="100" :value="cfg.rsiN" @change="setRsiN($event)" data-page-node-id="7kT752OQxwy48AjUYpL0nv"></div> <!-- RSI 输入 -->
+          <div class="setrow" data-page-node-id="8tbg9h0Kuur0m1LyZHX049"><span class="k" data-page-node-id="vjuBoAiJgvLq3KW8LfudZo">KDJ 参数</span><input class="inp" :value="cfg.kdjN.join(',')" @change="setKdjStr($event)" placeholder="9,3,3" data-page-node-id="BjiYiHhe1jFEmM2eKLAidm"></div> <!-- KDJ 输入 -->
+          <div class="mt-1 text-3xs leading-relaxed text-txt-4" data-page-node-id="4oUOsuA6WDSt4TNtUkCvjg">MACD 由 C++ 内核预计算（与引擎同口径）；MA/EMA/BOLL/RSI/KDJ 由浏览器本地实时计算。副图最多同时开 3 个。</div> <!-- 计算口径说明 -->
         </div>
 
-        <div class="setgrp" data-page-node-id="HiwCuf3KSiTxaCGhsiUF5g">
-          <h4 data-page-node-id="TFJI4QIRpqYnlEeUygRXfW">显示项</h4>
-          <div class="setrow" data-page-node-id="phEPDVJ5AK4NT0ug7W3PDr"><span class="k" data-page-node-id="I6rmjwNHTZrIBuAZEbbeVV">交易信号 🚀▲🍃</span><input type="checkbox" class="h-3.5 w-3.5 accent-[#f0b90b]" :checked="cfg.marks" @change="setCfgKey('marks',$event.target.checked)" data-page-node-id="eK1W855dNEnYPhM8iAe6V9"></div>
-          <div class="setrow" data-page-node-id="0lCeoXSMA30eREanLQN8aw"><span class="k" data-page-node-id="PVZWVoOULHOUOZbOuWbYnx">算法转折点 ●</span><input type="checkbox" class="h-3.5 w-3.5 accent-[#f0b90b]" :checked="cfg.pivots" @change="setCfgKey('pivots',$event.target.checked)" data-page-node-id="VVvATy7G49rEeFW0dcZWAQ"></div>
-          <div class="setrow" data-page-node-id="9PX7FAq99X6eHtvVt3FCe5"><span class="k" data-page-node-id="avDGWzHVDaRgofH0sgPAVb">持仓均价线</span><input type="checkbox" class="h-3.5 w-3.5 accent-[#f0b90b]" :checked="cfg.avgline" @change="setCfgKey('avgline',$event.target.checked)" data-page-node-id="wZIF6sRGLGlJs5Zsp0Td4R"></div>
-          <div class="setrow" data-page-node-id="uv72gWjR3MzKFYdV8UNkE9"><span class="k" data-page-node-id="Sd3MWLL4u6k8wgyxxCP5cC">止盈 / 止损线</span><input type="checkbox" class="h-3.5 w-3.5 accent-[#f0b90b]" :checked="cfg.tpline" @change="setCfgKey('tpline',$event.target.checked)" data-page-node-id="dqXYzsWa7UdFf4mKF84UfI"></div>
+        <div class="setgrp" data-page-node-id="HiwCuf3KSiTxaCGhsiUF5g"> <!-- 设置组: 显示项 -->
+          <h4 data-page-node-id="TFJI4QIRpqYnlEeUygRXfW">显示项</h4> <!-- 组标题 -->
+          <div class="setrow" data-page-node-id="phEPDVJ5AK4NT0ug7W3PDr"><span class="k" data-page-node-id="I6rmjwNHTZrIBuAZEbbeVV">交易信号 🚀▲🍃</span><input type="checkbox" class="h-3.5 w-3.5 accent-[#f0b90b]" :checked="cfg.marks" @change="setCfgKey('marks',$event.target.checked)" data-page-node-id="eK1W855dNEnYPhM8iAe6V9"></div> <!-- 买卖信号开关 -->
+          <div class="setrow" data-page-node-id="0lCeoXSMA30eREanLQN8aw"><span class="k" data-page-node-id="PVZWVoOULHOUOZbOuWbYnx">算法转折点 ●</span><input type="checkbox" class="h-3.5 w-3.5 accent-[#f0b90b]" :checked="cfg.pivots" @change="setCfgKey('pivots',$event.target.checked)" data-page-node-id="VVvATy7G49rEeFW0dcZWAQ"></div> <!-- 转折点开关 -->
+          <div class="setrow" data-page-node-id="9PX7FAq99X6eHtvVt3FCe5"><span class="k" data-page-node-id="avDGWzHVDaRgofH0sgPAVb">持仓均价线</span><input type="checkbox" class="h-3.5 w-3.5 accent-[#f0b90b]" :checked="cfg.avgline" @change="setCfgKey('avgline',$event.target.checked)" data-page-node-id="wZIF6sRGLGlJs5Zsp0Td4R"></div> <!-- 均价线开关 -->
+          <div class="setrow" data-page-node-id="uv72gWjR3MzKFYdV8UNkE9"><span class="k" data-page-node-id="Sd3MWLL4u6k8wgyxxCP5cC">止盈 / 止损线</span><input type="checkbox" class="h-3.5 w-3.5 accent-[#f0b90b]" :checked="cfg.tpline" @change="setCfgKey('tpline',$event.target.checked)" data-page-node-id="dqXYzsWa7UdFf4mKF84UfI"></div> <!-- 止盈线开关 -->
         </div>
 
-        <div class="setgrp" data-page-node-id="YeCDkjRMCx6VJyVoRytAfq">
-          <h4 data-page-node-id="tJia4k5JGhUjIU6SMV2Ei9">绘图工具</h4>
-          <div class="setrow" data-page-node-id="u9psJ6pT5B0H1yxsjVoBv9"><span class="k" data-page-node-id="LgoSFvO1KcDXLt23osQW3K">当前工具</span>
-            <select class="sel" :value="tool" @change="setTool($event.target.value)" data-page-node-id="5eIuEcspGZjmELUnNjuaii">
-              <option v-for="t in TOOLS" :key="t[0]" :value="t[0]" data-page-node-id="Fyt8JgZ8XXXKESk5A22V6N">{{ t[1] }}</option>
+        <div class="setgrp" data-page-node-id="YeCDkjRMCx6VJyVoRytAfq"> <!-- 设置组: 绘图工具 -->
+          <h4 data-page-node-id="tJia4k5JGhUjIU6SMV2Ei9">绘图工具</h4> <!-- 组标题 -->
+          <div class="setrow" data-page-node-id="u9psJ6pT5B0H1yxsjVoBv9"><span class="k" data-page-node-id="LgoSFvO1KcDXLt23osQW3K">当前工具</span> <!-- 行标签 -->
+            <select class="sel" :value="tool" @change="setTool($event.target.value)" data-page-node-id="5eIuEcspGZjmELUnNjuaii"> <!-- 工具下拉 -->
+              <option v-for="t in TOOLS" :key="t[0]" :value="t[0]" data-page-node-id="Fyt8JgZ8XXXKESk5A22V6N">{{ t[1] }}</option> <!-- 工具选项 -->
             </select>
           </div>
-          <div class="setrow" data-page-node-id="YNne8ipHYLNcGP1bplTAkP"><span class="k" data-page-node-id="0uLGX5UJB7UjQZa9pOrQrv">颜色</span>
-            <span class="flex items-center gap-1.5" data-page-node-id="bo10t2UKivIj2qrVUAbfD8">
+          <div class="setrow" data-page-node-id="YNne8ipHYLNcGP1bplTAkP"><span class="k" data-page-node-id="0uLGX5UJB7UjQZa9pOrQrv">颜色</span> <!-- 行标签 -->
+            <span class="flex items-center gap-1.5" data-page-node-id="bo10t2UKivIj2qrVUAbfD8"> <!-- 色板容器 -->
               <button v-for="c in DRAW_COLORS" :key="c" @click="setDrawColor(c)" class="h-3.5 w-3.5 rounded-full border transition-transform"
-                      :class="drawColor===c?'scale-125 border-txt-1':'border-ink-500'" :style="{background:c}" data-page-node-id="NZuNF3eIpTeeSMpCzHGMIX"></button>
+                      :class="drawColor===c?'scale-125 border-txt-1':'border-ink-500'" :style="{background:c}" data-page-node-id="NZuNF3eIpTeeSMpCzHGMIX"></button> <!-- 色板圆点 -->
             </span>
           </div>
-          <div class="flex items-center gap-2 pt-1" data-page-node-id="TYg47OEXgJ0J8xKa38aHD0">
-            <button @click="undoDraw()" class="btn" data-page-node-id="xKmNEt57Ir0Zt2gp8eDTco">↶ 撤销</button>
-            <button @click="clearDraw()" class="btn" data-page-node-id="rVQFM2ntsr2yZXVfye3P32">🗑 清空</button>
+          <div class="flex items-center gap-2 pt-1" data-page-node-id="TYg47OEXgJ0J8xKa38aHD0"> <!-- 操作按钮行 -->
+            <button @click="undoDraw()" class="btn" data-page-node-id="xKmNEt57Ir0Zt2gp8eDTco">↶ 撤销</button> <!-- 撤销按钮 -->
+            <button @click="clearDraw()" class="btn" data-page-node-id="rVQFM2ntsr2yZXVfye3P32">🗑 清空</button> <!-- 清空按钮 -->
           </div>
-          <div class="mt-1 text-3xs leading-relaxed text-txt-4" data-page-node-id="bGHXx31sJh0vwI2fFRRcW5">画线按「合约 + 周期」分别记忆，切换或刷新回来仍在。</div>
+          <div class="mt-1 text-3xs leading-relaxed text-txt-4" data-page-node-id="bGHXx31sJh0vwI2fFRRcW5">画线按「合约 + 周期」分别记忆，切换或刷新回来仍在。</div> <!-- 绘图记忆说明 -->
         </div>
 
       </div>
     </aside>
   </div>
 
-  <footer class="px-3 pb-8 pt-1 text-center text-3xs text-txt-4" data-page-node-id="ruZ8deSZURAfED0kCq2cWX">
-    数据源：C++ 组件 apihub.exe :8090（<span class="num" data-page-node-id="IyBs0DRWuGZ1rRYEWMSjjy">/kline /marks /sigs /trades /livestats /gridmon /guard</span>）· 页面 0 PHP 计算 · 断线自动重连
+  <footer class="px-3 pb-8 pt-1 text-center text-3xs text-txt-4" data-page-node-id="ruZ8deSZURAfED0kCq2cWX"> <!-- 页脚 -->
+    数据源：C++ 组件 apihub.exe :8090（<span class="num" data-page-node-id="IyBs0DRWuGZ1rRYEWMSjjy">/kline /marks /sigs /trades /livestats /gridmon /guard</span>）· 页面 0 PHP 计算 · 断线自动重连 <!-- 数据源与接口清单 -->
   </footer>
 
 </div>
 
-<script src="assets/vue.global.prod.js?v=0928v16"></script>
-<script src="assets/lwc5.js?v=0928v16"></script>
-<script src="assets/okx.js?v=0928v16"></script>
-<script src="assets/chart.js?v=0928v16"></script>
-<script src="assets/app.js?v=0928v16"></script>
+<script src="assets/vue.global.prod.js?v=0928v16"></script> <!-- Vue3 全局构建(生产版) -->
+<script src="assets/lwc5.js?v=0928v16"></script> <!-- Lightweight Charts 图表库 -->
+<script src="assets/okx.js?v=0928v16"></script> <!-- OKXAPI/OKXU 工具模块 -->
+<script src="assets/chart.js?v=0928v16"></script> <!-- OKXChart 图表控制器 -->
+<script src="assets/app.js?v=0928v16"></script> <!-- Vue 主应用(本页面入口) -->
 </body>
 </html>
