@@ -13,7 +13,7 @@
        算法转折点双表(KE=½mv² 动能说明)
     5) 右侧栏: 加仓触发日志 / 守护状态 / 风控铁律参数
     6) 设置抽屉: 图表样式/主图均线/布林带/副图指标/显示项/绘图工具
-    7) 页脚数据源说明 + 版本号 v16(资源 ?v=0928v16 缓存戳)
+    7) 页脚数据源说明 + 版本号 v17(资源 ?v=0928v17 缓存戳)
   【铁律】本文件是 Vue3 模板: 所有绑定表达式(含 sgnCls/dirCls/profitCls/
   pctlCls/isGold/goldN 等方法调用)绝不改动; 比较运算符一律在 JS 方法内,
   模板绑定里禁止出现裸的比较表达式注入; 注释一律加在行尾且不破坏标签。
@@ -24,7 +24,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" data-page-node-id="awOG277ERgo1WB6hfNjhvN"> <!-- 移动端视口适配 -->
 <title>OKX 量化终端 · C++ 内核</title> <!-- 页签标题 -->
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E%F0%9F%93%88%3C/text%3E%3C/svg%3E"> <!-- 内联 SVG 站点图标(📈) -->
-<link rel="stylesheet" href="assets/tw.css?v=0928v16" data-page-node-id="3JApKl4hjvMGFgdBVZMY4E"> <!-- Tailwind 编译产物(v16 版本戳控制缓存) -->
+<link rel="stylesheet" href="assets/tw.css?v=0928v17" data-page-node-id="3JApKl4hjvMGFgdBVZMY4E"> <!-- Tailwind 编译产物(v16 版本戳控制缓存) -->
 </head> <!-- 头部结束 -->
 <body class="bg-ink-900 font-sans text-txt-1 antialiased" data-page-node-id="7vHEE9GU2PlGczbawrJ7oi"> <!-- 深色底/默认字体/正文色/抗锯齿 -->
 <div id="app" v-cloak data-page-node-id="VIFgFszsznboxgzvoHYul5"> <!-- Vue 挂载根节点; v-cloak 防止编译前模板闪烁 -->
@@ -248,8 +248,8 @@
 
         <!-- 图例 -->
         <div class="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-ink-600 px-3 py-2 text-2xs text-txt-3" data-page-node-id="3urv83XwD1dfpSQ0I8Svna"> <!-- 图例说明区 -->
-          <span data-page-node-id="ZToYWM5sYoKH0jSrCAtyo6"><b class="text-up" data-page-node-id="GAwzvdGXiND2sxxKVNgSme">🚀 买</b> 5m+3m 金▲共振开仓</span> <!-- 买入图例 -->
-          <span data-page-node-id="HuaqrXfkSvEl60PCDnJcGI"><b class="text-gold" data-page-node-id="QKCGIRHmhHzXmXR1D7Qqng">▲ 加仓</b> 跌时 3m 金▲ · 每轮 +⅓U</span> <!-- 加仓图例 -->
+          <span data-page-node-id="ZToYWM5sYoKH0jSrCAtyo6"><b class="text-up" data-page-node-id="GAwzvdGXiND2sxxKVNgSme">🚀 买</b> 5m+3m 金▲共振开仓 · 2U</span> <!-- 买入图例 -->
+          <span data-page-node-id="HuaqrXfkSvEl60PCDnJcGI"><b class="text-gold" data-page-node-id="QKCGIRHmhHzXmXR1D7Qqng">▲ 加仓</b> 跌时 3m 金▲ · 每轮 +1U · 同根不重复</span> <!-- 加仓图例 -->
           <span data-page-node-id="Ro9X1xpynjMHS4cBlU3qWX"><b class="text-txt-1" data-page-node-id="RDz15XsSPYhV8S4zqNjqke">🍃 平</b> +2% 止盈 · 旁标盈亏(红盈绿亏)</span> <!-- 平仓图例 -->
           <span data-page-node-id="0fMzDudhe3SOoAf5UR5rhK"><b class="text-gold" data-page-node-id="0SUCY4FH7DRyhLl057IE6n">● 金▲ KE值</b> 底部动能进前25% (KE≥阈值)</span> <!-- 金▲图例 -->
           <span data-page-node-id="6YS7DNlvbB3kByfaFhyl1S"><b class="text-violet" data-page-node-id="T3siJGc0H0AAknYzpefIyw">● 底</b> 普通转折底 (小字=下跌腿动能)</span> <!-- 转折底图例 -->
@@ -568,10 +568,10 @@
 
 </div>
 
-<script src="assets/vue.global.prod.js?v=0928v16"></script> <!-- Vue3 全局构建(生产版) -->
-<script src="assets/lwc5.js?v=0928v16"></script> <!-- Lightweight Charts 图表库 -->
-<script src="assets/okx.js?v=0928v16"></script> <!-- OKXAPI/OKXU 工具模块 -->
-<script src="assets/chart.js?v=0928v16"></script> <!-- OKXChart 图表控制器 -->
-<script src="assets/app.js?v=0928v16"></script> <!-- Vue 主应用(本页面入口) -->
+<script src="assets/vue.global.prod.js?v=0928v17"></script> <!-- Vue3 全局构建(生产版) -->
+<script src="assets/lwc5.js?v=0928v17"></script> <!-- Lightweight Charts 图表库 -->
+<script src="assets/okx.js?v=0928v17"></script> <!-- OKXAPI/OKXU 工具模块 -->
+<script src="assets/chart.js?v=0928v17"></script> <!-- OKXChart 图表控制器 -->
+<script src="assets/app.js?v=0928v17"></script> <!-- Vue 主应用(本页面入口) -->
 </body>
 </html>

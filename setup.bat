@@ -207,6 +207,9 @@ echo     --- 编译 cmd_pitbt.exe (黄金坑回测工具, sigcore 同源编入) 
 "%GXX%" %CFLAGS% -mwindows -c %SRC%\cmd_pitbt.cpp -o %OBJ%\cmd_pitbt.o %INC% || goto :FAIL
 "%GXX%" -o %BIN%\cmd_pitbt.exe %OBJ%\cmd_pitbt.o %OBJ%\sigcore.o %BIN%\libhub.a %LIBS% || goto :FAIL
 
+echo     --- 部署金额配置 trade_cfg.json (买入/加仓金额, 可直接改文件热生效) ---
+if not exist "%BIN%\trade_cfg.json" copy /Y "%~dp0configs\trade_cfg.json" "%BIN%\trade_cfg.json" >nul
+
 echo.
 echo ============================================================
 echo   全部完成! 二进制输出在 %BIN%
@@ -214,6 +217,7 @@ echo   后续步骤:
 echo     1. 向数据库 okx_cred 表 INSERT 你的 OKX API 凭证
 echo     2. 启动 MySQL / Apache / apihub.exe / tradehub.exe / tphub.exe / datahub.exe
 echo     3. guard.exe install 注册为 Windows 服务 (开机自启+守护)
+echo     4. 改买入/加仓金额: 编辑 %BIN%\trade_cfg.json 保存即热生效(10秒内), 无需重启
 echo ============================================================
 pause
 exit /b 0

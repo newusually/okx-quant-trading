@@ -253,8 +253,8 @@ window.OKXChart = (function () {                       // 全局图表模块 OKX
           if (m.kind !== "buy" && m.kind !== "add" && m.kind !== "close") continue; // 只处理 买/加/平 三类
           var tm = window.OKXU.alignToBar(times, Math.floor(m.t / 1000) + OFF); // 把标记时间对齐到已存在的K线(二分找<=t的最近bar)
           if (tm < 0) continue;                          // 对齐失败(超出范围)跳过
-          if (m.kind === "buy") arr.push({ time: tm, position: "belowBar", color: upCol(), shape: "arrowUp", text: "🚀买 1U", size: 1.4 }); // 首买：阳线色上箭头"🚀买 1U"
-          else if (m.kind === "add") arr.push({ time: tm, position: "belowBar", color: "#f0b90b", shape: "arrowUp", text: "▲加仓 +⅓U", size: 1.1 }); // 加仓：金色箭头
+          if (m.kind === "buy") arr.push({ time: tm, position: "belowBar", color: upCol(), shape: "arrowUp", text: "🚀买 2U", size: 1.4 }); // 首买：阳线色上箭头"🚀买 2U"
+          else if (m.kind === "add") arr.push({ time: tm, position: "belowBar", color: "#f0b90b", shape: "arrowUp", text: "▲加仓 +1U", size: 1.1 }); // 加仓：金色箭头(每次+1U, 同根3m不重复)
           else {                                         // 平仓标记
             var pf = m.profit == null ? 0 : m.profit;    // 平仓盈亏(缺省0)
             arr.push({                                   // 上方箭头，颜色随盈亏正负
