@@ -34,7 +34,7 @@
  * 【策略硬锁常量 LOCK_*】(真钱交易核心口径, 代码级硬锁, 不可绕过)
  *   LOCK_LEVER=20          20 倍全仓(cross)交叉杠杆
  *   LOCK_ENTRY_USD=2.0     每笔开仓保证金默认 2 USDT(可被同目录 trade_cfg.json entry_usd 热覆盖)
- *   LOCK_ADD_USD=1.0       加仓每次默认 +1 USDT(可被 trade_cfg.json add_usd 热覆盖; 网格跌档触发)
+ *   LOCK_ADD_USD=1.0       加仓每次默认 +1 USDT(可被 trade_cfg.json add_usd 热覆盖; 跌够+三多头触发)
  *   LOCK_TP_ROI=0.40       止盈 ROI 备用口径(40%)
  *   LOCK_TP_PCT=0.02       止盈唯一口径: 止盈价格=均价+2%(与 tphub 判定同源)
  *   LOCK_MAX_POSITIONS=12  全局最大同时持仓 12 个
@@ -56,7 +56,7 @@
 //
 // 交易铁律(与 bootstrap.php 逐字一致, 代码级硬锁):
 //   买入 = 5m+3m 金▲共振 + 近1h振幅>amp1h_pct%(死水过滤, fib618 优点吸收) · 2U · 20X cross · 只买 symbol_pool
-//   加仓 = 网格跌档(现价<上次加仓价×(1-add_dip_pct%), 首次用均价) · +1U · 单合约30分冷却 · 全局每小时≤6
+//   加仓 = 跌够1%(现价<上次加仓价×(1-add_dip_pct%), 首次用均价)+3m三线多头确认 · +1U · 30分冷却 · 每小时≤6
 //   止盈 = tphub.exe 实时接管(本进程不碰)
 //   止损 = 永不止损
 //   闸门 = 持仓12 / 每小时买3 / 每轮开1 / 同合约冷却60分
