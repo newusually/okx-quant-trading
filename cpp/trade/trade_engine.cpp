@@ -29,8 +29,8 @@
  *   金▲共振 → gates_ok 六重闸门(持仓≤12/时买≤3/单扫≤1/60分冷却/
  *   大盘熔断ETH-BTC 15m×4根跌>1%/只买白名单symbol_pool) → okx_set_leverage_adaptive
  *   (返回的实际杠杆参与计算, 不可用 LOCK_LEVER 常量) → okx_market_buy
- *   → position_detail/trade_flow 台账; 加仓: 现价<均价 且 3m金▲ → +1U,
- *   30分钟冷却 + 每小时≤6次 + 同根3m(g_addSlot 槽位键)只加1次
+ *   → position_detail/trade_flow 台账; 加仓: 网格跌档(跌破上次加仓价 add_dip_pct%) → +1U,
+ *   30分钟冷却 + 每小时≤6次 (2026-09-29 用户拍板: 回测收益+59%/次数-40%/最差减半)
  * ================================================================== */
 // ==================================================================
 // trade_engine.cpp — C++ 交易引擎主循环 (逐字迁移自 engine/engine.php)
@@ -46,7 +46,7 @@
 #include <set>                                 // std::set(存活持仓集合)
 
 // inst → 已加仓的 3m 槽位(同一根 3m 只加一次)
-static std::map<std::string, long long> g_addSlot;   // 加仓槽位表: 键=合约, 值=该合约已加仓的 3m 槽起点秒
+static std::map<std::string, long long> g_addSlot;   // 加仓槽位表(保留: 兼容旧数据结构, 现行判定走价格网格)
 
 // ---------------- 喂库 ----------------
 // 单合约单周期: DB 取数(不足自动补) → 推入 sigcore 内存库
@@ -89,6 +89,7 @@ static int size_for(const std::string& inst, double usd, double px, int lever) {
 // 每 10 秒重读一次文件, 保存后下一节拍生效, 无需重启进程; 值变化会落 logs 表审计。
 static double g_entryUsd = LOCK_ENTRY_USD;           // 当前买入保证金(USDT, 初始=硬锁 2U)
 static double g_addUsd   = LOCK_ADD_USD;             // 当前加仓保证金(USDT, 初始=硬锁 1U)
+static double g_addDip   = 0.005;                    // 网格跌档阈值(小数, 默认 0.5%: 现价须跌破上次加仓价 0.5% 才允许再加)
 static void cfg_reload() {                           // 热加载金额配置(引擎每轮调用)
     static time_t lastChk = 0;                       // 上次实际读文件时间(10s 节流)
     time_t now = time(nullptr);                      // 当前时间
@@ -105,15 +106,20 @@ static void cfg_reload() {                           // 热加载金额配置(�
     fclose(f);                                       // 关闭
     double e = j_num(s, "entry_usd");                // 买入金额(j_num 缺键返回 0)
     double a = j_num(s, "add_usd");                  // 加仓金额
+    double dp = j_num(s, "add_dip_pct");             // 网格跌档阈值(百分数, 0.5=跌 0.5%)
     if (e < 0.01 || e > 1000.0) e = g_entryUsd;      // 非法值兜底 → 保持现值(防手滑写崩)
     if (a < 0.01 || a > 1000.0) a = g_addUsd;        // 同上
-    if (e != g_entryUsd || a != g_addUsd) {          // 值有变化 → 审计日志
-        char cl[160];                                // 日志缓冲
-        snprintf(cl, sizeof(cl), "金额配置热更新: 买入=%.2fU 加仓=%.2fU (%s)", e, a, cfg.c_str());   // 变更文案
+    if (dp < 0.05 || dp > 5.0) dp = g_addDip * 100.0;   // 跌档阈值合法区间 0.05%~5%
+    dp /= 100.0;                                     // 百分数 → 小数
+    if (e != g_entryUsd || a != g_addUsd || dp != g_addDip) {   // 值有变化 → 审计日志
+        char cl[200];                                // 日志缓冲
+        snprintf(cl, sizeof(cl), "金额配置热更新: 买入=%.2fU 加仓=%.2fU 跌档=%.2f%% (%s)",
+                 e, a, dp * 100.0, cfg.c_str());     // 变更文案
         eng_log("INFO", "engine", cl);               // 落 logs 表+文件
     }
     g_entryUsd = e;                                  // 生效: 买入
     g_addUsd = a;                                    // 生效: 加仓
+    g_addDip = dp;                                   // 生效: 跌档阈值
 }
 
 // ---------------- 开仓: 下单 + 台账 + 流水 ----------------
@@ -180,10 +186,10 @@ static void add_position(const std::string& inst, double avg, double last, const
         "INSERT INTO trade_flow (trade_time,inst_id,action,pos_side,price,sz,notional_usd,remark)"
         " VALUES (NOW(),'%s','add','long',%.10g,%d,%.10g,'%s')",   // action=add
         inst.c_str(), last, sz, sz * last,
-        sqlesc("gold5m add (跌时金▲ " + why + ") +1U").substr(0, 400).c_str());
+        sqlesc("网格跌档加仓 (" + why + ") +1U").substr(0, 400).c_str());
     db_ex(sql);                                         // 执行插入
     char lg[256];                                       // 成功日志缓冲
-    snprintf(lg, sizeof(lg), "跌时金▲加仓 %s sz=%d (+1U · %dx) last=%.6g avg=%.6g %s",   // 加仓文案(含实际杠杆)
+    snprintf(lg, sizeof(lg), "网格跌档加仓 %s sz=%d (+1U · %dx) last=%.6g avg=%.6g %s",   // 加仓文案(含实际杠杆)
              inst.c_str(), sz, lev, last, avg, why.c_str());
     eng_log("INFO", "add", lg);                         // 落日志
 }
@@ -281,19 +287,25 @@ static void manage_positions() {                        // 每 10 秒执行
         if (last <= 0) last = j_num(p, "markPx");       // 现价缺失退用标记价
         double uplRatio = j_num(p, "uplRatio");         // 未实现收益率(ROI)
         bool ok = false;                                // db_scalar 出参
-        std::string addsS = db_scalar("SELECT ladder_adds FROM position_detail WHERE inst_id='" + inst +    // 查台账加仓次数
+        std::string addsS = db_scalar("SELECT CONCAT(ladder_adds,'|',IFNULL(last_add_px,0)) FROM position_detail WHERE inst_id='" + inst +    // 查台账: 加仓次数|上次加仓价
                                       "' AND status='OPEN' ORDER BY id DESC LIMIT 1", ok);
-        int adds = (int)atoll_s(addsS);                 // 已加仓次数
+        int adds = 0;                                   // 已加仓次数
+        double lapx = 0.0;                              // 上次加仓价(从未加过=0)
+        {   std::size_t bar = addsS.find('|');          // 拆 "次数|价格"
+            if (bar != std::string::npos) {             // 格式合法
+                adds = (int)atoll_s(addsS.substr(0, bar).c_str());          // 次数
+                lapx = atof(addsS.substr(bar + 1).c_str());                 // 价格
+            }
+        }
         double tpPx = avg * (1.0 + LOCK_TP_PCT);        // 止盈线 = 均价 × (1+2%)  唯一口径
 
-        // 加仓检测: 跌(现价<均价) + 3m金▲ + 同根3m只加一次 (2026-09-28 用户指定: 加仓走 3m)
-        // 防失控: 单合约 30 分钟冷却 + 全局每小时 ≤6 次
-        long long slot3 = (long long)(floor((double)now / 180.0) * 180.0);   // 当前 3m 槽起点秒(g_addSlot 槽位键)
+        // 加仓检测: 网格跌档(2026-09-29 用户拍板)——现价须跌破基准价×(1-跌档阈值)才允许再加,
+        // 基准 = 上次加仓价(从未加过则用开仓均价); 天然满足"同价位不重复加仓"。
+        // 防失控: 单合约 30 分钟冷却 + 全局每小时 ≤6 次 保留; 跌档阈值 trade_cfg.json add_dip_pct 可调。
+        double basePx = (lapx > 0 ? lapx : avg);        // 跌档基准价
         bool canAdd = false;                            // 是否允许加仓
         std::string why;                                // 加仓触发说明
-        auto sit = g_addSlot.find(inst);                // 查该合约已加仓槽位
-        bool slotUsed = (sit != g_addSlot.end() && sit->second == slot3);   // 同一根 3m 是否已加过
-        if (avg > 0 && last < avg && !slotUsed) {       // 跌时(现价<均价) 且 本根3m未加过
+        if (avg > 0 && basePx > 0 && last < basePx * (1.0 - g_addDip)) {   // 创出新低(跌破基准 0.5%)
             std::string lastAddS = db_scalar("SELECT UNIX_TIMESTAMP(MAX(trade_time)) FROM trade_flow"    // 最近一次加仓时间
                                              " WHERE inst_id='" + inst + "' AND action='add'", ok);
             long long lastAdd = lastAddS.empty() ? 0 : atoll_s(lastAddS);   // 0=从未加仓
@@ -302,23 +314,23 @@ static void manage_positions() {                        // 每 10 秒执行
                 "SELECT COUNT(*) FROM trade_flow WHERE action='add' AND trade_time>NOW()-INTERVAL 60 MINUTE", ok));
             bool hourOk = addsH < 6;                    // 每小时≤6次限制
             if (coolOk && hourOk) {                     // 冷却+频次都过
-                feed_inst_lite(inst, "3m");             // 补最新 3m K线进内存库
-                double kk = 0.0;                        // 金▲ KE 出参
-                std::string inf;                        // 信号说明出参
-                if (sig_store_gold(inst, "3m", kk, inf)) { canAdd = true; why = inf; }   // 3m 金▲命中才加仓
+                canAdd = true;                          // 网格跌档命中 → 允许加仓
+                char wb[200];                           // 触发说明缓冲
+                snprintf(wb, sizeof(wb), "网格跌档 %.2f%%(基准%.6g 现价%.6g)", g_addDip * 100.0, basePx, last);
+                why = wb;                               // 落库用
             }
         }
 
         // 止盈状态/文案: 与 tphub 判定同口径(价格 +2%), 并显示实际杠杆(可能被降档)
         double lever = j_num(p, "lever"); if (lever <= 0) lever = LOCK_LEVER;   // 实际杠杆(异常兜底20x)
         bool tpHit = (last > 0 && avg > 0) ? (last >= tpPx) : (uplRatio >= LOCK_TP_ROI);   // 止盈达标判定(价格优先/ROI兜底)
-        const char* state = canAdd ? "★金▲待加仓"      // 看板状态文案
+        const char* state = canAdd ? "★网格跌档待加仓"  // 看板状态文案
                           : (tpHit ? "★止盈达标"
-                          : (last < avg ? "等待跌时金▲" : "持有(现价≥均价)"));
+                          : (last < basePx * (1 - g_addDip / 2) ? "等待创出新低" : "持有(未创新低)"));
         char note[512];                                 // 看板备注缓冲
         snprintf(note, sizeof(note),                    // 组装与 tphub 同口径的备注
-            "金▲版 | 跌时3m金▲加仓+%.2fU | 止盈线%.6f(价格+2%%; %.0fx→ROI%.0f%%) | 不止损 | 现价ROI=%.1f%%",   // 不止损铁律
-            g_addUsd, tpPx, lever, LOCK_TP_PCT * 100.0 * lever, uplRatio * 100.0);
+            "金▲版 | 网格跌档加仓+%.2fU(创新低%.2f%%) | 止盈线%.6f(价格+2%%; %.0fx→ROI%.0f%%) | 不止损 | 现价ROI=%.1f%%",   // 不止损铁律
+            g_addUsd, g_addDip * 100.0, tpPx, lever, LOCK_TP_PCT * 100.0 * lever, uplRatio * 100.0);
         char sql[2048];                                 // SQL 缓冲
         snprintf(sql, sizeof(sql),                      // 写/更新 grid_signal 持仓看板
             "REPLACE INTO grid_signal (inst_id,updated,last_px,avg_px,units,ladder_adds,next_add_usd,"
@@ -329,10 +341,9 @@ static void manage_positions() {                        // 每 10 秒执行
         db_ex(sql);                                     // 执行看板更新
 
         if (canAdd) {                                   // 通过全部加仓条件
-            g_addSlot[inst] = slot3;                    // 记录本根 3m 槽已加(防同根重复加)
             snprintf(sql, sizeof(sql),                  // 写加仓触发日志表
                 "INSERT INTO grid_signal_log (log_time,inst_id,level,last_px,trigger_px,add_usd,kind,state,note)"
-                " VALUES (NOW(),'%s',0,%.10g,%.10g,%.10g,'gold','触发加仓','%s')",
+                " VALUES (NOW(),'%s',0,%.10g,%.10g,%.10g,'grid','触发加仓','%s')",
                 inst.c_str(), last, last, g_addUsd, sqlesc(why).substr(0, 180).c_str());
             db_ex(sql);                                 // 执行
             add_position(inst, avg, last, why);         // 正式执行加仓(+1U 市价买)

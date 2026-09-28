@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OKX 量化系统 · fib618 回测 × 交易记录复盘报告</title>
+<style>
+  :root { --bg:#f6f8fb; --card:#ffffff; --ink:#1c2733; --sub:#5b6b7c; --line:#e3e9f0;
+          --red:#d64541; --green:#1e9e63; --gold:#b7791f; --blue:#2563eb; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--ink); font:15px/1.7 "Segoe UI","Microsoft YaHei",sans-serif; padding:32px 16px; }
+  .wrap { max-width:1080px; margin:0 auto; }
+  h1 { font-size:26px; margin-bottom:4px; }
+  .meta { color:var(--sub); font-size:13px; margin-bottom:24px; }
+  h2 { font-size:20px; margin:36px 0 12px; padding-left:12px; border-left:4px solid var(--blue); }
+  h3 { font-size:16px; margin:20px 0 8px; color:#33475b; }
+  .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:14px; margin:18px 0; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; box-shadow:0 1px 3px rgba(30,50,80,.06); }
+  .card .k { font-size:12px; color:var(--sub); }
+  .card .v { font-size:24px; font-weight:700; margin-top:2px; }
+  .card .d { font-size:12px; color:var(--sub); margin-top:4px; }
+  table { width:100%; border-collapse:collapse; background:var(--card); border:1px solid var(--line); border-radius:10px; overflow:hidden; font-size:13.5px; margin:12px 0; }
+  th { background:#eef3f9; text-align:left; padding:8px 12px; font-weight:600; color:#3b4d61; white-space:nowrap; }
+  td { padding:7px 12px; border-top:1px solid var(--line); white-space:nowrap; }
+  td.num { text-align:right; font-variant-numeric:tabular-nums; }
+  .pos { color:var(--red); font-weight:600; }   /* 中国市场惯例: 红涨 */
+  .neg { color:var(--green); font-weight:600; }
+  .warn { background:#fff8e6; border:1px solid #f0d998; border-radius:10px; padding:12px 16px; margin:14px 0; font-size:14px; }
+  .good { background:#eefaf3; border:1px solid #bfe6cf; border-radius:10px; padding:12px 16px; margin:14px 0; font-size:14px; }
+  .bad  { background:#fdeeee; border:1px solid #efc4c4; border-radius:10px; padding:12px 16px; margin:14px 0; font-size:14px; }
+  .tag { display:inline-block; padding:1px 8px; border-radius:99px; font-size:12px; font-weight:600; }
+  .tag-r { background:#fdecec; color:var(--red); }
+  .tag-g { background:#e8f7ef; color:var(--green); }
+  .tag-b { background:#e8effd; color:var(--blue); }
+  .tag-y { background:#fdf6e3; color:var(--gold); }
+  ul,ol { margin:8px 0 8px 22px; }
+  li { margin:4px 0; }
+  .foot { color:var(--sub); font-size:12px; margin-top:40px; border-top:1px solid var(--line); padding-top:12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>fib618 回撤信号全市场回测 × 最近交易记录复盘</h1>
+<div class="meta">生成时间 2026-09-29 00:45 · 数据源 本地 MariaDB trading 库 · 479 个 USDT-SWAP 合约 · 5m K线近 60 天 · trade_flow 全部 366 笔（09-27 22:56 引擎上线起）</div>
+
+<!-- ======== 摘要 ======== -->
+<div class="cards">
+  <div class="card"><div class="k">fib618 信号（10 个变体）</div><div class="v neg" style="color:var(--red)">不建议上线</div><div class="d">10 个参数组合 9 负 1 平，最好 12 笔 +0.01U/笔样本太小</div></div>
+  <div class="card"><div class="k">账户真实净盈亏（周期对账）</div><div class="v pos" style="color:var(--red)">+3.12U</div><div class="d">26 小时 · 已平 3 个周期全胜 + 进行中 -3.19U</div></div>
+  <div class="card"><div class="k">手续费总计</div><div class="v" style="color:var(--gold)">4.86U</div><div class="d">比净利还多——「傻」的最大头之一</div></div>
+  <div class="card"><div class="k">最危险单仓</div><div class="v" style="color:var(--red)">AUCTION 43U</div><div class="d">9 买 7 加，保证金失控到上限的 8.6 倍</div></div>
+</div>
+
+<!-- ======== A. fib618 ======== -->
+<h2>一、fib618 回撤开仓信号 · 全市场回测（近 60 天）</h2>
+<p><b>信号定义（按你的要求）</b>：滚动 24h 窗口内最高价→最低价跌幅 3%~10%，价格回升至 (最高-最低) 区间的 0.618 位，且前 1h 振幅 &gt; 1% 时开仓。<b>模拟口径</b>：2U 保证金 · 20X · +2% 止盈（盘中触及即成）· 无止损 · 网格跌档加仓（跌破上次加仓价 0.5% 才加，30 分钟冷却）· 双边 0.05% 费率。</p>
+
+<h3>1. 十个参数变体全部跑完</h3>
+<table>
+<tr><th>变体（入水位/振幅/跌幅）</th><th class="num">信号数</th><th class="num">笔均盈亏</th><th class="num">胜率</th><th class="num">总盈亏</th><th class="num">最差单笔</th></tr>
+<tr><td>V1 0.618 / 1% / 3~10%（你的原始参数）</td><td class="num">77</td><td class="num neg">-1.110U</td><td class="num">55.8%</td><td class="num neg">-85.5U</td><td class="num neg">-16.1U</td></tr>
+<tr><td>V2 0.500 / 1% / 3~10%</td><td class="num">109</td><td class="num neg">-1.457U</td><td class="num">54.1%</td><td class="num neg">-158.8U</td><td class="num neg">-40.5U</td></tr>
+<tr><td>V3 0.618 / 2% / 3~10%</td><td class="num">34</td><td class="num neg">-0.682U</td><td class="num">67.6%</td><td class="num neg">-23.2U</td><td class="num neg">-16.1U</td></tr>
+<tr><td>V5 0.618 / 2% / 5~15%</td><td class="num">22</td><td class="num neg">-0.598U</td><td class="num">68.2%</td><td class="num neg">-13.2U</td><td class="num neg">-12.8U</td></tr>
+<tr style="background:#fffdf3"><td><b>V7 0.618 / 3% / 5~15%（最优）</b></td><td class="num">12</td><td class="num">+0.010U</td><td class="num"><b>83.3%</b></td><td class="num">+0.1U</td><td class="num neg">-10.7U</td></tr>
+<tr><td>V9 0.618 / 1% / 5~15%</td><td class="num">39</td><td class="num neg">-0.810U</td><td class="num">66.7%</td><td class="num neg">-31.6U</td><td class="num neg">-13.5U</td></tr>
+<tr><td>其余 V4/V6/V8/V10（0.5 入水位）</td><td class="num">—</td><td class="num neg">-1.5~-1.9U</td><td class="num">52~60%</td><td class="num neg">全负</td><td class="num neg">-40.5U</td></tr>
+</table>
+<p style="font-size:13px;color:var(--sub)">注：V4/V6/V8/V10 使用 0.500 入水位，全部显著更差；V7 完整名单见下。网格加仓 vs 完全不加仓对比（V1 口径）：加仓 -1.110U/笔·胜率 55.8% vs 不加仓 -0.792U/笔·胜率 38.2%——加仓能把胜率抬 17pp，但救不回尾部亏损。</p>
+
+<h3>2. 最优变体 V7 的 12 笔全名单</h3>
+<table>
+<tr><th>合约</th><th class="num">笔数</th><th class="num">盈亏</th><th>结果</th></tr>
+<tr><td>VIRTUAL</td><td class="num">1</td><td class="num pos">+2.89U</td><td><span class="tag tag-r">止盈</span></td></tr>
+<tr><td>MSTU</td><td class="num">1</td><td class="num pos">+2.34U</td><td><span class="tag tag-r">止盈</span></td></tr>
+<tr><td>NET / TAO</td><td class="num">各1</td><td class="num pos">+1.17U</td><td><span class="tag tag-r">止盈</span></td></tr>
+<tr><td>DDOG / AZTEC / CRO</td><td class="num">各1</td><td class="num pos">+0.78U</td><td><span class="tag tag-r">止盈</span></td></tr>
+<tr><td>BSP / MRNA / 2Z</td><td class="num">各1</td><td class="num pos">+0.39~0.59U</td><td><span class="tag tag-r">止盈</span></td></tr>
+<tr><td>ZHIPU</td><td class="num">1</td><td class="num neg">-0.34U</td><td><span class="tag tag-g">数据尽头小亏</span></td></tr>
+<tr style="background:#f2fbf5"><td><b>EIGEN</b></td><td class="num">1</td><td class="num neg"><b>-10.67U</b></td><td><span class="tag tag-g">深套扛到数据尽头强平 → <b>一笔吞掉全部 11 笔盈利</b></span></td></tr>
+</table>
+
+<div class="bad"><b>❌ 结论：fib618 信号被 60 天全市场数据证伪（无止损体系下）。</b><br>
+规律很清晰：<b>振幅阈值越高，入场质量越好</b>（1%→55% 胜率，3%→83% 胜率），说明你的直觉「波动大的时候买最划算」完全正确；但 0.618 回撤接刀的失败案例一旦失败就是 <b>-10~-40U 的尾部</b>（急跌 10%+ 之后继续阴跌 30%+ 的合约），无止损 + 越跌越加直接把尾部放大。11 笔小赚 × 1 笔大亏 = 白干。<b>现行的 5m+3m 金▲共振（回测 +0.697U/笔 配网格加仓）仍然明显更优，建议保留。</b></div>
+
+<!-- ======== B. 交易复盘 ======== -->
+<h2>二、最近交易记录复盘（引擎上线以来全部 366 笔，不足 1000 笔如实说明）</h2>
+
+<h3>1. 先修数据——三个账本对账后才能谈盈亏</h3>
+<div class="warn"><b>⚠️ 重大发现：trade_flow 的 close.profit 字段是虚的。</b>表里 close 利润合计 +48.75U、81 笔全正零笔负——数学上不可能。真实原因：fills/pos-history 回填把<b>同一账户上其他系统（ETH 网格、手动单）的成交</b>也抓进来了（IRYS「+22.67U」、SEI「+16.20U」根本不是 C++ 引擎的单——引擎账户曲线那两天在跌）。另有 12 笔 fills+pos-history 双份重复。唯一可信的是 <b>pnl_history 账户曲线</b>：该列在空仓时清零，按持仓周期切段求和才是真钱。</div>
+<table>
+<tr><th>持仓周期</th><th class="num">周期盈亏</th><th>点评</th></tr>
+<tr><td>09-27 23:26 ~ 09-28 00:16</td><td class="num">+0.00U</td><td><span class="tag tag-b">打平（GMT/ORDER 小仓试水）</span></td></tr>
+<tr><td>09-28 00:46 ~ 09-28 02:48</td><td class="num pos">+0.36U</td><td><span class="tag tag-r">胜（PENGU/MAGIC 快进快出）</span></td></tr>
+<tr><td>09-28 04:13 ~ 09-28 12:22</td><td class="num pos">+5.95U</td><td><span class="tag tag-r">大胜（ARX 深坑 8 小时扛回 + 一串止盈）</span></td></tr>
+<tr><td>09-28 12:36 ~ 进行中</td><td class="num neg">-3.19U</td><td><span class="tag tag-g">在持 5 仓，浮动 -3.19U</span></td></tr>
+<tr style="background:#eef3f9"><td><b>账户累计净盈亏</b></td><td class="num"><b>+3.12U</b></td><td>26 小时 · 毛利被手续费吃掉一大半</td></tr>
+</table>
+
+<h3>2. 牛逼在哪里 / 傻在哪里</h3>
+<div class="good"><b>牛逼的地方：</b>
+<ul>
+<li><b>入场方向几乎全对</b>：17 笔实盘开仓 100% 在 24h 内触及过 +2% 止盈价，平均 0.5~1.1 小时就到——5m+3m 金▲共振挑点位的能力是真的。</li>
+<li><b>零加仓的仓最赚钱</b>：加仓 0 次的 7 个合约合计 +40.23U（流水口径），加仓 1~4 次的均笔利润掉一个数量级——说明<b>第一脚踩准比摊薄更有价值</b>。</li>
+<li><b>ARX 48 次加仓最终 +4.19U</b>：深坑里 8 小时纪律性摊薄最后扛回来，网格摊薄机制的极限测试通过（但这是运气好的结果，不可依赖）。</li>
+<li><b>USELESS 11 分钟止盈 +0.39U</b>：强波动时段快进快出的节奏完美。</li>
+</ul></div>
+<div class="bad"><b>傻的地方：</b>
+<ul>
+<li><b>傻 ① 手续费 4.86U &gt; 净利 3.12U</b>：166 笔买 + 87 笔平，流水口径毛利一大半交给交易所。笔数越多越傻——降低信号频率、放宽加仓节拍直接省钱。</li>
+<li><b>傻 ② AUCTION 保证金失控到 43U</b>（9 买 7 加，单仓上限的 8.6 倍）：连环加仓遇到横盘阴跌，2U 起步滚成巨仓。仓位三闸门（12 仓/3 买每小时）管住了「开几个仓」，没管住「单个仓滚多大」。</li>
+<li><b>傻 ③ 加仓 5 次以上的仓全军覆没</b>：DATA/ENSO/UP 各加 5 次、CASHCAT 加 1 次后全部挂着零平仓（在持浮亏 -0.18~-0.60U）——加仓越多离回本越远。</li>
+<li><b>傻 ④ 死水时段照样开仓</b>：昨晚回测已证 1h 振幅最低档信号 70% 是废的，但引擎在 13:41、19:50、20:50、21:55 的深夜死水时段照开不误。</li>
+<li><b>傻 ⑤ 账本污染</b>：fills 回填把其他系统的成交灌进 trade_flow（占 20%+），现在每笔真实盈亏都无法逐笔追溯——先修数据再说优化。</li>
+</ul></div>
+
+<h3>3. 加仓次数 vs 结果（流水口径）</h3>
+<table>
+<tr><th class="num">加仓次数</th><th class="num">合约数</th><th class="num">合计盈亏</th><th class="num">平均</th></tr>
+<tr><td class="num">0 次</td><td class="num">7</td><td class="num pos">+40.23U</td><td class="num pos">+5.75U</td></tr>
+<tr><td class="num">1~2 次</td><td class="num">7</td><td class="num pos">+3.27U</td><td class="num pos">+0.47U</td></tr>
+<tr><td class="num">3~4 次</td><td class="num">2</td><td class="num pos">+1.05U</td><td class="num pos">+0.53U</td></tr>
+<tr><td class="num">5 次以上</td><td class="num">5</td><td class="num">+0.00U（全部在持/挂零）</td><td class="num">—</td></tr>
+</table>
+
+<!-- ======== C. 建议 ======== -->
+<h2>三、下一步行动建议</h2>
+<ol>
+<li><b>fib618 不上线</b>，保留 5m+3m 金▲共振为主力开仓信号（数据支持）。若想吸收 fib618 的优点，可给金▲加一条「入场时 1h 振幅 &gt; 2%」的波动率过滤——V3/V7 证明振幅过滤能显著提纯信号（胜率 55%→83%），而且不引入接刀尾部。</li>
+<li><b>加仓切网格跌档</b>（跌破上次加仓价 0.5% 才加）——回测收益比现行金▲加仓高 59%、加仓次数少 40%、最差单笔减半，且天然满足「不重复加仓」。<span class="tag tag-y">已安排切换</span></li>
+<li><b>加单仓保证金硬顶</b>（如 8U）：治 AUCTION 式失控，比全局限仓更致命的那条腿。</li>
+<li><b>修 fills 盈亏回填</b>：过滤非引擎成交（按 remark/ord_id 区分），去重 fills+pos-history 双份——否则永远算不清每笔真实盈亏。</li>
+<li><b>降频省手续费</b>：死水时段（1h 振幅 &lt; 0.5%）停开新仓，手续费能省 30%+。</li>
+</ol>
+
+<div class="foot">回测脚本 fib618_bt.py / fib618_var.py / flow_review.py（E:\datas\tmp\）· 回测无未来函数：信号用当根收盘判定、止盈用盘中高点触及、加仓用当根收盘价近似 · 所有口径与 tradehub 现行参数一致（2U/20X/+2% 止盈/无止损）</div>
+</div>
+</body>
+</html>
