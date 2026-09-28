@@ -311,8 +311,10 @@ static void load_market(std::vector<PC>& mkt) {   // 读全市场 15m 窗口数�
     RowSet rs = db_q("SELECT table_name FROM information_schema.tables WHERE table_schema='trading' "
                      "AND table_name LIKE 'kline\\_%usdt\\_swap\\_15m'");
     if (!rs.ok) return;
+    int ln = 0;                                // 进度计数(每 150 合约落一条日志, 崩溃可定位)
     for (auto& r : rs.rows) {                  // 逐合约加载
         std::string tn = r[0];
+        if (++ln % 150 == 0) logline("加载行情中... " + std::to_string(ln) + "/" + std::to_string(rs.rows.size()));
         size_t p1 = tn.find('_'), p2 = tn.rfind("_usdt_swap_15m");
         if (p1 == std::string::npos || p2 == std::string::npos || p2 <= p1) continue;
         std::string inst = tn.substr(p1 + 1, p2 - p1 - 1);
@@ -412,8 +414,43 @@ static void build_events(const std::vector<PC>& mkt, std::vector<Ev> ev[A_N][2])
 }
 
 // ---------------- 人设生成: 8 原型 × 多空 × 5 档 × 随机性格, 每场不同 ----------------
+// ---------------- 名人专家库(真实交易大师, 每场随机抽取上场) ----------------
+// 策略映射到模拟原型; 名言/风控理念来源: tradeciety/quantifiedstrategies/strike.money 等公开资料
+struct Exp { const char* name; int arch, dir, vi, temper; const char* tip; };
+static const Exp EXP[] = {
+    {"利弗莫尔·投机之王",   A_BRK,    0,  2, 7, "市场永远没错, 错的是 opinion; 亏钱最快的方式是不认亏"},   // Jesse Livermore 趋势+逆势都不拘, 关键止损
+    {"利弗莫尔·金字塔",     A_TREND3, 1,  3, 4, "钱是坐着赚的; 顺势金字塔加码, 永不摊平亏损"},             // pyramiding 加码盈利仓
+    {"巴菲特·价值定投",     A_DIP,    1,  0, 5, "别人恐惧我贪婪; 买在恐慌, 拿得住才拿得到钱"},             // Buffett 逆势买+超长持
+    {"索罗斯·反身性",       A_ADAPT,  0,  3, 7, "市场总是错的; 重要是判断错在哪个方向"},                   // Soros 反身性双向
+    {"德鲁肯米勒·宏观之王", A_TREND3, 0,  4, 7, "看对要下重注, 但先保本; 现金也是仓位"},                   // Druckenmiller 集中+流动性
+    {"保罗·都铎·琼斯",      A_ADAPT,  0,  0, 7, "每天假设所有仓位都是错的; 防守第一, 亏5%立刻减仓"},       // PTJ 200日线+1%风控
+    {"丹尼斯·海龟之父",     A_TREND3, 0,  2, 7, "趋势是朋友; 规则可以教会, 纪律教不会"},                   // Richard Dennis 海龟实验
+    {"塞柯塔·止损三诀",     A_TREND3, 1,  1, 7, "砍亏损砍亏损砍亏损; 人人都能发财, 前提是拿得住"},         // Ed Seykota
+    {"拉里·海特·1%风控",    A_MOM,    0,  0, 7, "每次只冒 1% 的险, 活得久比赢得多重要"},                   // Larry Hite
+    {"威廉姆斯·短线爆发",   A_BRK,    0,  4, 0, "交易 80% 是心理 20% 是策略; 波动率突破就是入场券"},       // Larry Williams
+    {"达瓦斯·箱体舞者",     A_RANGE,  1,  2, 7, "只买创 52 周新高+放量的; 止损跟着箱子走"},                 // Nicolas Darvas box theory
+    {"舒华兹·日内之王",     A_MOM,    0,  1, 7, "止损不可谈判; 每天归零, 上一单与今天无关"},               // Marty Schwartz
+    {"马库斯·骑赢家的马",   A_TREND3, 1,  3, 0, "拿住赢的单子直到理由消失; 输的单子绝不加码"},             // Michael Marcus
+    {"科夫纳·基本面趋势",   A_TREND3, 0,  2, 7, "止损放在'想法被证伪'的地方, 不是放在能亏多少钱的地方"},   // Bruce Kovner
+    {"拉施克·价行动作派",   A_RANGE,  0,  1, 7, "价格领先, 指标滞后; 把秘密告诉你也没用, 因为你拿不住"},   // Linda Raschke
+    {"勃兰特·图形老猎手",   A_BRK,    0,  1, 7, "没有好球就不出棒; 空仓也是策略"},                         // Peter Brandt
+    {"保尔森·大空头",       A_TREND3, -1, 4, 6, "看准极端错价敢 all-in, 但用极小止损保护赌注"},            // John Paulson
+    {"江恩·时间价格",       A_RANGE,  0,  2, 7, "永远用止损单; 不要过度交易, 不要逆势加仓"},               // W.D. Gann
+    {"埃尔德·三重滤网",     A_TREND3, 0,  0, 7, "三重滤网多周期共振才出手; 仓位决定你能活多久"},           // Alexander Elder
+    {"巴索·期望值大师",     A_ADAPT,  0,  2, 0, "不求每单都赢, 只求系统期望为正; 一致性重于完美"},         // Tom Basso
+};
+static const int EXP_N = sizeof(EXP) / sizeof(EXP[0]);   // 20 位名人
+static const int EXP_SLOTS = 28;                          // 每场上场名人席位(其余 72 席随机人格)
+
 static std::vector<Spec> make_specs(const std::vector<std::string>& llmNames, const std::vector<int>& llmTemps) {
     std::vector<Spec> out; out.reserve(100);
+    // ---- 名人专家席位: 每场洗牌抽 EXP_SLOTS 位(不同场次名人阵容不同) ----
+    std::vector<int> expIdx(EXP_N);            // 名人下标池
+    for (int i = 0; i < EXP_N; i++) expIdx[i] = i;
+    std::shuffle(expIdx.begin(), expIdx.end(), g_rng);           // 每场随机洗牌
+    std::vector<int> expertSeats(100, -1);     // 座位→名人下标映射(默认 -1 = 普通席位)
+    for (int i = 0; i < EXP_SLOTS; i++) expertSeats[i] = expIdx[i % EXP_N];   // 前 28 席给名人(可重复轮补)
+    std::shuffle(expertSeats.begin(), expertSeats.end(), g_rng); // 名人座位也洗牌(位置不固定)
     std::vector<int> varIdx(100);              // 参数档洗牌(每场不同配比)
     for (int i = 0; i < 100; i++) varIdx[i] = i % 5;
     std::shuffle(varIdx.begin(), varIdx.end(), g_rng);
@@ -432,6 +469,13 @@ static std::vector<Spec> make_specs(const std::vector<std::string>& llmNames, co
         s.temper = TEMPER_NAME[tp];
         s.name = k < (int)llmNames.size() ? llmNames[k] : (snprintf(nb, sizeof(nb), "员%02d", k+1), std::string(nb));
         s.archN = ARCH_NAME[s.arch];
+        if (expertSeats[k] >= 0) {             // 名人专家席位: 覆盖人设为大师配置
+            const Exp& e = EXP[expertSeats[k]];
+            s.name = e.name; s.arch = e.arch; s.dir = e.dir; s.vi = e.vi;
+            s.size = V_SIZE[e.vi]; s.tp = V_TP[e.vi]; s.sl = V_SL[e.vi]; s.hold = V_HOLD[e.vi];
+            s.temper = TEMPER_NAME[e.temper]; tp = e.temper;
+            s.archN = std::string(ARCH_NAME[e.arch]) + "·" + e.tip;   // 方法名带名人理念(报告可见)
+        }
         out.push_back(s);
     }
     return out;
@@ -674,21 +718,22 @@ static void run_once() {
     std::vector<Spec> sp = make_specs(names, temps);                  // ④ 100 人设
     std::vector<Ev> ev[A_N][2];                 // ⑤ 事件预计算
     build_events(mkt, ev);
+    logline("事件预计算完成");                   // 分段留痕(定位崩溃段)
     std::vector<Res> res(sp.size());            // ⑥ 逐人模拟
     for (size_t i = 0; i < sp.size(); i++) res[i] = sim_one(sp[i], mkt, ev, t0);
     write_report(sp, res, (int)mkt.size(), t0, t1);                   // ⑦ 报告入库
     logline("===== 本轮结束 =====");
 }
 
-// ---------------- 主循环: 立即跑一场, 之后每小时整点+5分触发 ----------------
-int main() {
+// ---------------- worker: 单实例互斥 + 主循环(真正干活的部分) ----------------
+static int worker_main() {
     HANDLE mtx = CreateMutexA(nullptr, TRUE, "bttimer_single_instance");   // 命名互斥体: 防双开(计划任务+手动)
     if (!mtx || GetLastError() == ERROR_ALREADY_EXISTS) {  // 已有实例在跑
         logline("检测到另一实例已运行, 本进程退出");
         return 0;                                          // 直接退出
     }
     log_setfile(LOG_PATH);                      // 日志落 E:\datas\log\bttimer.txt
-    logline("bt_timer 启动 (每小时一场 AI 模拟回测)");
+    logline("bt_timer worker 启动 (每小时一场 AI 模拟回测)");
     run_once();                                 // 启动即跑第一场(页面立刻有报告)
     for (;;) {                                  // 常驻: 每小时整点+5分触发下一场
         time_t now = time(nullptr);             // 当前时间
@@ -698,6 +743,37 @@ int main() {
         if (waitSec <= 0) waitSec += 3600;      // 已过 05 分 → 等下一个小时的 05 分
         for (int i = 0; i < waitSec; i++) Sleep(1000);   // 秒级睡眠(便于进程随时被终止)
         run_once();
+    }
+    return 0;
+}
+
+// ---------------- 主进程: 父子监督模式, worker 崩溃立即拉起, 永不掉线 ----------------
+int main(int argc, char** argv) {
+    if (argc > 1 && std::string(argv[1]) == "--worker") return worker_main();   // 子进程: 直接进入工作循环
+    // ---- 父进程(监督者): 反复拉起自身 --worker, 子进程异常退出即重启 ----
+    log_setfile(LOG_PATH);                      // 监督者也落同一日志(便于看拉起记录)
+    logline("bt_timer 监督者启动 (worker 崩溃自动重启)");
+    char self[MAX_PATH];                        // 自身完整路径
+    GetModuleFileNameA(nullptr, self, MAX_PATH);
+    for (;;) {                                  // 监督循环
+        STARTUPINFOA si; PROCESS_INFORMATION pi;// 子进程启动信息
+        ZeroMemory(&si, sizeof(si)); si.cb = sizeof(si);
+        ZeroMemory(&pi, sizeof(pi));
+        char cmd[MAX_PATH + 32];                // 命令行: "自身路径" --worker
+        snprintf(cmd, sizeof(cmd), "\"%s\" --worker", self);
+        if (!CreateProcessA(nullptr, cmd, nullptr, nullptr, FALSE, 0, nullptr, nullptr, &si, &pi)) {
+            logline("拉起 worker 失败, 60 秒后重试");   // 拉不起(文件被占用等): 等待重试
+            Sleep(60000);
+            continue;
+        }
+        CloseHandle(pi.hThread);                // 线程句柄不需要, 先关
+        WaitForSingleObject(pi.hProcess, INFINITE);   // 等子进程退出(正常循环永不退出/崩溃即退出)
+        DWORD code = 0; GetExitCodeProcess(pi.hProcess, &code);   // 取退出码(0xC0000005 等)
+        CloseHandle(pi.hProcess);
+        char eb[96];
+        snprintf(eb, sizeof(eb), "worker 退出 code=0x%08lX, 30 秒后重新拉起", (unsigned long)code);
+        logline(eb);                            // 留痕
+        Sleep(30000);                           // 喘 30 秒(防崩溃循环打爆日志)
     }
     return 0;
 }
