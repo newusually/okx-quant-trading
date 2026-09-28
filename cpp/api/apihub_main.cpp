@@ -122,8 +122,6 @@ static void handle_req(const std::string& target, std::string& outBody, int& out
     else if (action == "gridmon")     outBody = ep_gridmon(q);   // 网格监控
     else if (action == "backcheck")   outBody = ep_backcheck(q);   // 体检报告
     else if (action == "marks")       outBody = ep_marks(q);   // 交易标记
-    else if (action == "sigs")        outBody = ep_sigs(q);   // 金▲转折点(t毫秒)
-    else if (action == "sigscan")     outBody = ep_sigscan(q);   // 全池信号扫描(30s缓存)
     else if (action == "boot")        outBody = ep_boot(q);   // 页面引导
     else if (action == "symbols")     outBody = ep_symbols(q);   // 合约池
     else if (action == "settings")    outBody = ep_settings(q);   // 设置键值
@@ -244,7 +242,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {   // GUI 入口(无控制
     if (!ok) { logline("DB 连接失败60次, 退出"); return 1; }   // 5 分钟仍失败则退出
     logline("DB 已连接 trading@127.0.0.1 (libmysql)");   // 连接成功日志
     // 金▲快扫后台缓存
-    std::thread(sigscan_loop).detach();    // 启动 30 秒一轮的信号扫描后台线程
     WSADATA wsa;                           // Winsock 初始化结构
     if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) { logline("WSAStartup FAIL"); return 1; }   // 初始化 Winsock 2.2 失败则退出
     SOCKET ls = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);   // 创建 TCP 监听套接字

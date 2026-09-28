@@ -120,14 +120,7 @@ std::vector<Bar> kl_engine_rows(const std::string& inst, const std::string& tf);
 std::vector<std::string> pool_cached();      // symbol_pool 表(30分钟进程内缓存)
 std::vector<std::string> pool_all_insts();   // information_schema 反推 + 权威池
 
-// ---------------- sigcore 内存库包装 (trade_data.cpp) ----------------
-int  sig_feed(const std::string& inst, const std::string& bar, const std::vector<Bar>& rows); // 喂K线进内存库
-bool sig_store_pit(const std::string& inst, const std::string& bar,  // 坑▲信号判定(直算内存库)
-                   double& score, std::string& info);
-// 金▲信号(自适应动能锚): 最新转折=底部 + 距最新K线<=8根 + KE>=该合约底部KE的75分位
-bool sig_store_gold(const std::string& inst, const std::string& bar, // 金▲信号判定(买入/加仓依据)
-                    double& ke, std::string& info);
-int  sig_store_stats();                                   // 内存库序列数统计
+// sigcore 内存库包装已删(0929: 动能公式/金▲信号全链路退役)
 
 // ---------------- 引擎 (trade_engine.cpp) ----------------
 void engine_loop();                                       // 引擎主循环(10秒节拍: 买入/加仓/对账/快照)

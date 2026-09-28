@@ -134,7 +134,8 @@
         // 状态
         clock: U.clock(), busy: false, kloading: false, kerr: "",   // 时钟字符串/手动刷新中/K线加载中/K线错误文案
         followOff: false, lagMin: 0, hover: null,   // 是否已暂停跟随最新/数据滞后分钟数/悬停OHLC浮窗数据
-        btList: [],                              // AI模拟回测报告列表(最近3场, 60s轮询 /btlist)
+        btList: [],                              // AI模拟回测报告列表(60s轮询 /btlist, 齿轮可展开滚动)
+        btExpand: false,                         // 回测面板展开态(默认3行, 点齿轮展开滚动看全部)
       };
     },
 
@@ -507,20 +508,25 @@
         }, function (e) { self.kloading = false; self.kerr = "K线请求失败: " + e.message; });   // 网络异常分支
       },
 
-      loadSignals: function () {                 // 加载买卖信号 + 算法转折点(15s轮询/新根/切合约共用)
+      loadSignals: function () {                 // 加载买卖信号 + 本地1m涨幅标注(15s轮询/新根/切合约共用)
         var self = this;                        // 闭包引用
         var days = this.marksDays;              // 信号回看天数
-        var lim = Math.max(this.nvis, Math.min(this.rows.length, 2000));   // 转折点查询根数(夹2000)
-        return Promise.all([                    // 两个请求并行
-          A.sigs(this.inst, this.tf, lim).catch(function () { return null; }),   // /sigs: 转折点+KE阈值(失败返回null)
-          A.marks(this.inst, days).catch(function () { return null; }),   // /marks: 买卖信号标记(失败返回null)
-        ]).then(function (r) {
-          var sg = r[0], mk = r[1];              // 解构两个结果
-          self.th = (sg && sg.th) || 0;          // 金▲KE阈值(引擎75分位)
-          self.pivots = (sg && sg.ok && sg.data) ? pivClean(sg.data) : [];   // 转折点先净化再入库
+        return A.marks(this.inst, days).catch(function () { return null; }).then(function (mk) {   // /marks: 买卖信号标记(失败返回null)
+          self.th = 0;                           // 金▲已退役(0929): 阈值恒0
+          self.pivots = [];                      // 转折点标注已退役(sigcore 下线)
           self.marks = (mk && mk.ok && mk.data) ? mk.data : [];   // 信号标记直接入库
-          if (self.ctrl) {                       // 下发给图表(画箭头/圆点/持仓线)
-            self.ctrl.setSignals(self.marks, self.pivots, self.lineSpec(), self.th);
+          /* 本地 1m 涨幅标注(0929 用户指定): 仅 1m 周期, 对 (收-开)/开 > 2% 的 K 线打"▲2%"标记, 纯前端计算零依赖 */
+          var m1 = [];                           // 涨幅达标标注数组
+          if (self.tf === "1m" && self.rows.length) {   // 只在 1m 周期扫描
+            for (var i = 0; i < self.rows.length; i++) {   // 逐根扫描
+              var r = self.rows[i];              // 行结构 [t秒,o,h,l,c,...]
+              if (!r || r.length < 5 || !r[1]) continue;   // 缺列/开盘价为0跳过
+              var pct = (r[4] - r[1]) / r[1] * 100;   // 该根 1m 涨幅%
+              if (pct > 2) m1.push({ t: r[0] * 1000, kind: "m1", px: String(r[4]), profit: "null", strat: pct.toFixed(1) });   // 达标: t毫秒+类型+价+涨幅
+            }
+          }
+          if (self.ctrl) {                       // 下发给图表(画箭头/持仓线)
+            self.ctrl.setSignals(self.marks.concat(m1), self.pivots, self.lineSpec(), self.th);
           }
         });
       },

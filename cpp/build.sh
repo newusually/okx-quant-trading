@@ -30,7 +30,6 @@ if [ "$TARGET" = "all" ] || [ "$TARGET" = "common" ]; then
   cc common/hub_util.cpp  hub_util.o
   echo "[ar] libhub.a"
   $AR rcs bin/obj/libhub.a bin/obj/hub_db.o bin/obj/hub_okx.o bin/obj/hub_util.o
-  cc sigcore.cpp sigcore.o
 fi
 
 if [ "$TARGET" = "all" ] || [ "$TARGET" = "apihub" ]; then
@@ -39,13 +38,13 @@ if [ "$TARGET" = "all" ] || [ "$TARGET" = "apihub" ]; then
   cc api/apihub_main.cpp apihub_main.o
   echo "[link] bin/${OUT:-apihub.exe}"
   $GXX $FLAGS -o "bin/${OUT:-apihub.exe}" bin/obj/apihub_main.o bin/obj/api_eps.o \
-      bin/obj/api_pages.o bin/obj/sigcore.o -Lbin/obj -lhub $LDFLAGS
+      bin/obj/api_pages.o -Lbin/obj -lhub $LDFLAGS
 fi
 
 if [ "$TARGET" = "all" ] || [ "$TARGET" = "tphub" ]; then
   cc api/tphub_main.cpp tphub_main.o
   echo "[link] bin/${OUT:-tphub.exe}"
-  $GXX $FLAGS -o "bin/${OUT:-tphub.exe}" bin/obj/tphub_main.o bin/obj/sigcore.o -Lbin/obj -lhub $LDFLAGS
+  $GXX $FLAGS -o "bin/${OUT:-tphub.exe}" bin/obj/tphub_main.o -Lbin/obj -lhub $LDFLAGS
 fi
 
 if [ "$TARGET" = "all" ] || [ "$TARGET" = "datahub" ]; then
@@ -64,7 +63,7 @@ if [ "$TARGET" = "all" ] || [ "$TARGET" = "tradehub" ]; then
   echo "[link] bin/${OUT:-tradehub.exe}"
   $GXX $FLAGS -o "bin/${OUT:-tradehub.exe}" bin/obj/tradehub_main.o bin/obj/trade_okx.o \
       bin/obj/trade_data.o bin/obj/trade_engine.o bin/obj/trade_backfill.o \
-      bin/obj/sigcore.o -Lbin/obj -lhub $LDFLAGS
+      -Lbin/obj -lhub $LDFLAGS
 fi
 
 if [ "$TARGET" = "all" ] || [ "$TARGET" = "bttimer" ]; then
@@ -73,10 +72,7 @@ if [ "$TARGET" = "all" ] || [ "$TARGET" = "bttimer" ]; then
   $GXX $FLAGS -o "bin/${OUT:-bt_timer.exe}" bin/obj/bt_timer.o -Lbin/obj -lhub $LDFLAGS
 fi
 
-if [ "$TARGET" = "all" ] || [ "$TARGET" = "dll" ]; then
-  echo "[link] bin/${OUT:-sigcore.dll}"
-  $GXX -std=gnu++17 -O2 -shared -static -Wall -Wextra -o "bin/${OUT:-sigcore.dll}" sigcore.cpp
-fi
+# sigcore.dll 目标已删(0929 用户指令: 动能公式/金▲信号退役, sigcore 全链路下线)
 
 if [ "$TARGET" = "all" ] || [ "$TARGET" = "guard" ]; then
   cc hub/guard_core.cpp guard_core.o

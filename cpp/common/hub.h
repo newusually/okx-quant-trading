@@ -140,8 +140,6 @@ std::string ep_livestats(const Params& q);        // 接口 /livestats: 实时�
 std::string ep_gridmon(const Params& q);          // 接口 /gridmon: 网格策略监控数据
 std::string ep_backcheck(const Params& q);        // 接口 /backcheck: 信号回测核查
 std::string ep_marks(const Params& q);            // 接口 /marks: 图表信号标记
-std::string ep_sigs(const Params& q);             // 接口 /sigs: 历史信号列表(t 为毫秒时间戳)
-std::string ep_sigscan(const Params& q);          // 接口 /sigscan: 信号扫描结果查询
 std::string ep_boot(const Params& q);             // 接口 /boot: 面板启动引导数据
 std::string ep_symbols(const Params& q);          // 接口 /symbols: 可交易合约列表
 std::string ep_settings(const Params& q);         // 接口 /settings: 读写系统配置
@@ -150,7 +148,6 @@ std::string ep_health(const Params& q);           // 接口 /health: 健康检�
 std::string ep_guard(const Params& q);            // 接口 /guard: 风控守护状态
 std::string ep_btlist(const Params& q);           // 接口 /btlist: AI模拟回测报告列表(最近n场简介)
 std::string ep_btreport(const Params& q);         // 接口 /btreport: 单场完整报告(?id=场次ID)
-void sigscan_loop();                              // 后台信号扫描常驻线程(循环扫描新K线并生成信号)
 
 // ---------------- 面板渲染 (api_pages) ----------------
 std::string render_panel(const Params& q);        // 渲染零JS主面板整页 HTML(服务端拼接, 浏览器直显)

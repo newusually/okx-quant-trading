@@ -7,7 +7,7 @@
  *   ② 持仓管理 + 跌够1%三多头加仓(每10秒)
  *   ③ 60 秒对账(OKX 无仓但台账 OPEN → 自动关台账)
  *   ④ 每分钟 pnl 快照(pnl_history 表)
- *   ⑤ 新 5m 槽: 全池增量喂库(5m/3m) + buy_scan 买入扫描
+ *   ⑤ 每分钟: 1m 涨幅榜前10买入(movers_buy, 0929 起, 金▲已删)
  *   止盈由 tphub.exe 实时接管(本组件绝不卖, 防双卖); 止损完全禁用。
  *
  * 【函数清单】
@@ -50,28 +50,6 @@
 // inst → 已加仓的 3m 槽位(同一根 3m 只加一次)
 static std::map<std::string, long long> g_addSlot;   // 加仓槽位表(保留: 兼容旧数据结构, 现行判定走价格网格)
 
-// ---------------- 喂库 ----------------
-// 单合约单周期: DB 取数(不足自动补) → 推入 sigcore 内存库
-static void feed_inst(const std::string& inst, const std::string& tf) {   // 合约/周期
-    std::vector<Bar> rows = kl_engine_rows(inst, tf);   // 从 DB 取最近300根(缺自动补)
-    if (!rows.empty()) sig_feed(inst, tf, rows);        // 非空才推入 sigcore 内存库
-}
-
-// 增量喂: 只拉最近 3 根已收盘K线
-static void feed_inst_lite(const std::string& inst, const std::string& tf) {   // 合约/周期
-    std::vector<std::vector<std::string>> bars;         // OKX 原始K线行
-    if (!okx_candles(inst, tf, 3, 0, false, false, "after", bars)) return;   // 拉 3 根失败则放弃
-    std::vector<Bar> rows;                              // 已收盘 Bar 数组
-    for (auto& b : bars) {                              // 遍历每根K线
-        if (b.size() < 9 || b[8] != "1") continue;      // confirm==1 已收盘
-        Bar r;                                          // 构造 Bar 结构
-        r.tms = atoll_s(b[0]); r.o = atof_s(b[1]); r.h = atof_s(b[2]);   // 时间戳/开/高
-        r.l = atof_s(b[3]);    r.c = atof_s(b[4]); r.v = atof_s(b[5]);   // 低/收/量
-        rows.push_back(r);                              // 收入数组
-    }
-    if (!rows.empty()) sig_feed(inst, tf, rows);        // 非空推入 sigcore 内存库
-}
-
 // ---------------- 张数: usd保证金 × 实际杠杆 ÷ (ctVal×价格), 至少1张 ----------------
 // 注意: 必须传**实际生效杠杆**(okx_set_leverage_adaptive 的返回值), 不能用 LOCK_LEVER 常量 ——
 //       OKX 上限 <20x 的合约会降档(实测 LIGHT=10x), 若仍按 20x 算张数, 保证金会翻倍(2U→4U)。
@@ -92,7 +70,11 @@ static int size_for(const std::string& inst, double usd, double px, int lever) {
 static double g_entryUsd = LOCK_ENTRY_USD;           // 当前买入保证金(USDT, 初始=硬锁 2U)
 static double g_addUsd   = LOCK_ADD_USD;             // 当前加仓保证金(USDT, 初始=硬锁 1U)
 static double g_addDip   = 0.01;                     // 加仓跌幅阈值(小数, 默认 1%: 现价须低于开仓均价 1% 才允许加仓, 0929 用户拍板)
-static double g_amp1h    = 2.0;                      // 买入过滤阈值(百分数): 入场时近 1h(12根5m)振幅须大于该值, 过滤死水合约
+static double g_amp1h    = 2.0;                      // (旧金▲过滤, 已退役保留) 1h 振幅阈值
+static double g_m1Pct    = 2.0;                      // 买入: 1m 涨幅阈值(百分数, 榜前N名且涨幅>2%才买, 0929 用户拍板)
+static int    g_m1TopN   = 10;                        // 买入: 全市场 1m 涨幅榜取前 N 名
+static double g_addM1Pct = 1.0;                      // 加仓触发: 最近已收 1m K 线涨幅须 >1%(放量反弹确认)
+static double g_addVolX  = 2.0;                      // 加仓触发: 1m 成交量须 ≥ 近20根均量的该倍数(大量买入)
 static void cfg_reload() {                           // 热加载金额配置(引擎每轮调用)
     static time_t lastChk = 0;                       // 上次实际读文件时间(10s 节流)
     time_t now = time(nullptr);                      // 当前时间
@@ -110,22 +92,35 @@ static void cfg_reload() {                           // 热加载金额配置(�
     double e = j_num(s, "entry_usd");                // 买入金额(j_num 缺键返回 0)
     double a = j_num(s, "add_usd");                  // 加仓金额
     double dp = j_num(s, "add_dip_pct");             // 加仓跌幅阈值(百分数, 1=低于上次加仓价 1%)
-    double am = j_num(s, "amp1h_pct");               // 买入过滤: 近 1h 振幅阈值(百分数, 2.0=振幅须>2%)
+    double am = j_num(s, "amp1h_pct");               // (旧金▲过滤, 保留兼容)
+    double mp = j_num(s, "m1_pct");                  // 买入: 1m 涨幅阈值(百分数)
+    int    mn = (int)atoll_s(j_str(s, "m1_top_n").c_str());   // 买入: 涨幅榜前 N 名
+    double ap = j_num(s, "add_m1_pct");              // 加仓: 1m 反弹涨幅阈值(百分数)
+    double vx = j_num(s, "add_vol_x");               // 加仓: 放量倍数
     if (e < 0.01 || e > 1000.0) e = g_entryUsd;      // 非法值兜底 → 保持现值(防手滑写崩)
     if (a < 0.01 || a > 1000.0) a = g_addUsd;        // 同上
     if (dp < 0.05 || dp > 5.0) dp = g_addDip * 100.0;   // 跌档阈值合法区间 0.05%~5%
     if (am < 0.1 || am > 20.0) am = g_amp1h;         // 振幅阈值合法区间 0.1%~20%(缺键=0 → 兜底保持现值)
+    if (mp < 0.2 || mp > 50.0) mp = g_m1Pct;         // 1m 涨幅阈值合法区间 0.2%~50%
+    if (mn < 1 || mn > 20) mn = g_m1TopN;            // 榜单名次 1~20
+    if (ap < 0.2 || ap > 20.0) ap = g_addM1Pct;      // 加仓 1m 反弹阈值 0.2%~20%
+    if (vx < 1.0 || vx > 20.0) vx = g_addVolX;       // 放量倍数 1~20
     dp /= 100.0;                                     // 百分数 → 小数
-    if (e != g_entryUsd || a != g_addUsd || dp != g_addDip || am != g_amp1h) {   // 值有变化 → 审计日志
+    if (e != g_entryUsd || a != g_addUsd || dp != g_addDip || am != g_amp1h ||
+        mp != g_m1Pct || mn != g_m1TopN || ap != g_addM1Pct || vx != g_addVolX) {   // 值有变化 → 审计日志
         char cl[200];                                // 日志缓冲
-        snprintf(cl, sizeof(cl), "金额配置热更新: 买入=%.2fU 加仓=%.2fU 跌档=%.2f%% 1h振幅阈值=%.1f%% (%s)",
-                 e, a, dp * 100.0, am, cfg.c_str()); // 变更文案
+        snprintf(cl, sizeof(cl), "金额配置热更新: 买入=%.2fU 加仓=%.2fU 跌档=%.2f%% 榜单前%d名·1m涨幅>%.1f%% 加仓反弹>%.1f%%·放量%.1fx (%s)",
+                 e, a, dp * 100.0, mn, mp, ap, vx, cfg.c_str()); // 变更文案
         eng_log("INFO", "engine", cl);               // 落 logs 表+文件
     }
     g_entryUsd = e;                                  // 生效: 买入
     g_addUsd = a;                                    // 生效: 加仓
     g_addDip = dp;                                   // 生效: 跌档阈值
     g_amp1h = am;                                    // 生效: 1h 振幅过滤阈值
+    g_m1Pct = mp;                                    // 生效: 1m 涨幅阈值
+    g_m1TopN = mn;                                   // 生效: 榜单前 N 名
+    g_addM1Pct = ap;                                 // 生效: 加仓 1m 反弹阈值
+    g_addVolX = vx;                                  // 生效: 加仓放量倍数
 }
 
 // ---------------- 开仓: 下单 + 台账 + 流水 ----------------
@@ -240,83 +235,109 @@ static bool gates_ok(int opened_this_scan) {            // 入参: 本轮扫描�
     return true;                                        // 三闸全过允许开仓
 }
 
-// ---------------- 1h 振幅: 最近 12 根已收盘 5m 的 (最高-最低)/最低 ----------------
-// fib618 回测优点吸收(2026-09-29 用户拍板): 金▲再准, 死水合约入场 24h 止盈率仅 30%,
-// 波动大的合约 79% → 买入前须近 1h 振幅 > 阈值(trade_cfg.json amp1h_pct 热配置)。
-// 用 DB 已入库的 5m 序列滚动合成 1h 窗口, 不加 OKX 请求、不碰 sigcore(基线零改动)。
-static double amp1h_of(const std::string& inst) {   // 入参: 合约; 出参: 振幅百分数(数据不足返回 -1)
-    std::vector<Bar> rows = kl_read_recent(inst, "5m", 12);   // 最近 12 根已收盘 5m = 1h 滚动窗
-    if ((int)rows.size() < 6) return -1.0;          // 不足 6 根(新上市/无数据) → 保守视为死水
-    double hi = rows[0].h, lo = rows[0].l;          // 窗口最高/最低初值
-    for (auto& b : rows) {                          // 扫全窗口
-        if (b.h > hi) hi = b.h;                     // 更新最高
-        if (b.l < lo) lo = b.l;                     // 更新最低
+// ---------------- 1分钟涨幅榜买入(2026-09-29 用户指定, 优先级最高) ----------------
+//   每分钟拉一次全市场 tickers(仅 1 个请求, 全市场最快口径) → 与 60 秒前快照对比算 1m 涨幅
+//   → 排名前 m1_top_n(10) 名 → 复核该合约最近已收 1m K 线 (c-o)/o > m1_pct(2%) → 过闸门 → 开仓。
+static std::map<std::string, double> g_prevLast;     // 60 秒前的全市场最新价快照(算 1m 涨幅基准)
+static void movers_buy() {                           // 每分钟调用一次(主循环跨分钟触发)
+    std::string tk;                                  // tickers 响应体
+    if (!okx_public_get("/api/v5/market/tickers?instType=SWAP", tk) ||
+        tk.find("\"code\":\"0\"") == std::string::npos) return;   // 拉取失败 → 快照保留, 下轮再试
+    std::vector<std::pair<double, std::string>> mvs; // (1m涨幅, 合约) 降序排
+    std::map<std::string, double> cur;               // 本次快照
+    for (auto& t : j_split_objects(tk)) {            // 遍历全市场 ticker
+        std::string id = j_str(t, "instId");         // 合约
+        double last = j_num(t, "last");              // 最新价
+        if (id.empty() || last <= 0) continue;
+        cur[id] = last;                              // 记本次快照
+        auto it = g_prevLast.find(id);               // 上次快照(60 秒前)
+        if (it != g_prevLast.end() && it->second > 0)
+            mvs.push_back({(last - it->second) / it->second * 100.0, id});   // 1m 涨幅
     }
-    if (lo <= 0) return -1.0;                       // 价格非法兜底
-    return (hi - lo) / lo * 100.0;                  // 振幅百分数
-}
-
-// ---------------- 三线多头判定: 3m EMA7>EMA25>EMA99 且收盘价在 EMA7 上方 ----------------
-// 加仓确认信号(2026-09-29 用户拍板): 跌够 1% 后须等"底部呈现多头"才加, 不接飞刀。
-// 用 DB 已入库的 3m 序列自算 EMA(纯引擎侧指标, 不碰 sigcore, 基线零改动)。
-static bool triple_bull_3m(const std::string& inst) {   // 入参: 合约; 出参: 是否三线多头排列
-    std::vector<Bar> rows = kl_read_recent(inst, "3m", 160);   // 最近 160 根已收盘 3m(EMA99 预热)
-    if ((int)rows.size() < 120) return false;       // 数据不足(新上市/掉库)保守拒绝
-    size_t n = rows.size();                         // 根数
-    std::vector<double> c(n);                       // 收盘序列
-    for (size_t i = 0; i < n; i++) c[i] = rows[i].c;
-    auto emaOf = [&](int p) {                       // 标准 EMA lambda
-        std::vector<double> e(n, 0.0);              // 输出序列
-        double k = 2.0 / (p + 1);                   // 平滑系数
-        e[0] = c[0];                                // 种子
-        for (size_t i = 1; i < n; i++) e[i] = c[i] * k + e[i - 1] * (1 - k);   // 递推
-        return e;                                   // 返回序列
-    };
-    std::vector<double> e7 = emaOf(7), e25 = emaOf(25), e99 = emaOf(99);   // 三线
-    size_t i = n - 1;                               // 最新一根已收盘 3m
-    return e7[i] > e25[i] && e25[i] > e99[i] && c[i] > e7[i];   // 多头排列判定
-}
-
-// ---------------- 5m 收盘买入扫描: 全池 → 5m+3m 金▲共振 → 1h振幅过滤 → 开仓 ----------------
-//   口径(2026-09-28 用户指定): 只用 5m 与 3m 两周期各自的金▲底部动能锚(KE>=该合约底部KE的75分位,
-//   与引擎同源自适应, 不用固定 KE 绝对值 —— 实测 KE 含成交量量纲, 跨合约不可比)。
-//   实测(10合约/24.5天/实盘口径): 5m+3m 共振 +0.190%/胜率57% > 单5m 0.172%/54% > 现状5m+15m六维 0.123%/52%。
-static void buy_scan(const std::vector<std::string>& pool) {   // 入参: 权威合约池(白名单)
-    int opened = 0, i = 0;                              // 本轮已开仓数/游标
-    std::set<std::string> alive;                        // OKX 存活持仓集合
-    std::vector<std::string> objs;                      // 持仓对象数组
-    if (okx_positions(objs))                            // 拉全部持仓
-        for (auto& o : objs) if (j_num(o, "pos") > 0) alive.insert(j_str(o, "instId"));   // 记存活合约
-
-    for (auto& inst : pool) {                           // 遍历白名单池
-        if (!g_run) break;                              // 全局退出标志
-        i++;                                            // 游标推进
-        Sleep(1);                                       // 单核让步
-        if (!gates_ok(opened)) break;                   // 闸门不过直接结束扫描
-        if (alive.count(inst)) continue;                // 有持仓不开
-        bool ok = false;                                // db_scalar 出参
-        int n = (int)atoll_s(db_scalar("SELECT COUNT(*) FROM trade_flow WHERE inst_id='" + inst +    // 统计该合约近冷却期买入数
+    g_prevLast = cur;                                // 更新快照(下轮基准)
+    if (mvs.empty()) return;                         // 首轮无基准 → 只记快照不开仓
+    std::sort(mvs.begin(), mvs.end(), [](const std::pair<double, std::string>& a,
+                                         const std::pair<double, std::string>& b) { return a.first > b.first; });   // 降序
+    {   char mb[320] = ""; int off = 0;              // 每分钟榜单心跳(证明搜索在工作, 可观测)
+        int show = mvs.size() < (size_t)g_m1TopN ? (int)mvs.size() : g_m1TopN;
+        for (int i = 0; i < show; i++)
+            off += snprintf(mb + off, sizeof(mb) - off, "%s%s+%.2f%%", i ? " " : "",
+                            mvs[i].second.substr(0, mvs[i].second.find("-USDT")).c_str(), mvs[i].first);
+        eng_log("INFO", "movers", mb[0] ? std::string("1m涨幅榜Top: ") + mb : "1m涨幅榜Top: 全市场无数据");
+    }
+    std::vector<std::string> objs;                   // 持仓对象
+    std::set<std::string> alive;                     // 存活持仓集合
+    if (okx_positions(objs))                         // 拉全部持仓(每分钟 1 次私有请求)
+        for (auto& o : objs) if (j_num(o, "pos") > 0) alive.insert(j_str(o, "instId"));
+    int opened = 0, ranked = 0;                      // 本轮已开数/榜单名次游标
+    for (auto& mv : mvs) {                           // 从第 1 名往下检查
+        if (ranked >= g_m1TopN || opened >= LOCK_MAX_NEW_SCAN) break;   // 前 N 名看完 / 已开满即收
+        if (!gates_ok(opened)) break;                // 六重闸门(持仓≤12/时买≤3/单扫≤1)不过即收
+        if (mv.first < g_m1Pct) break;               // 名次内不足阈值 → 后面更小, 直接结束
+        ranked++;                                    // 名次推进(第1名起)
+        const std::string& inst = mv.second;         // 候选合约
+        if (alive.count(inst)) continue;             // 有持仓不重复开
+        if (inst.find("-USDT-SWAP") == std::string::npos) continue;   // 只做 USDT 永续
+        bool ok = false;                             // db_scalar 出参
+        int n = (int)atoll_s(db_scalar("SELECT COUNT(*) FROM trade_flow WHERE inst_id='" + inst +
              "' AND action='buy' AND trade_time>NOW()-INTERVAL " + std::to_string(LOCK_COOLDOWN_MIN) + " MINUTE", ok));
-        if (n > 0) continue;                            // 冷却中跳过
-        double k5 = 0.0, k3 = 0.0;                      // 5m/3m 金▲ KE 值
-        std::string i5, i3;                             // 信号说明
-        if (!sig_store_gold(inst, "5m", k5, i5)) continue;   // ① 5m 金▲未命中 → 下一个
-        feed_inst_lite(inst, "3m");                     // 仅对 5m 已命中的合约补最新 3m(单合约 1 请求)
-        if (!sig_store_gold(inst, "3m", k3, i3)) continue;   // ② 3m 金▲未命中 → 双周期不共振, 放弃
-        double amp = amp1h_of(inst);                    // ③ 近 1h 振幅(fib618 优点吸收: 提纯信号不接刀)
-        if (amp < g_amp1h) continue;                    // 死水/波动不足 → 拒绝接刀, 静默跳过(同 5m/3m 未命中)
-        char ab[64];                                    // 振幅证据文案缓冲
-        snprintf(ab, sizeof(ab), " 1h振幅%.2f%%(>%0.1f%%)", amp, g_amp1h);   // 过滤通过的证据入备注
-        std::string remark = "金▲共振命中 5m[KE=" + jnum(k5) + "] 3m[KE=" + jnum(k3) + "]" + ab;   // 信号备注(双KE+振幅)
-        char sql[1024];                                 // SQL 缓冲
-        snprintf(sql, sizeof(sql),                      // 先写 signal 流水(买入痕迹)
+        if (n > 0) continue;                         // 60 分钟冷却中
+        // 复核: 最近已收 1m K 线 (c-o)/o > 阈值(用户口径: 按 1 分钟分时图上一个 K 线)
+        std::vector<std::vector<std::string>> rows;
+        if (okx_candles(inst, "1m", 3, 0, false, false, "before", rows)) {
+            bool hit = false;                        // 复核结果
+            for (auto& rw : rows) {                  // rows 新→旧, 找第一根已收盘(confirm=1)
+                if (rw.size() < 5) continue;
+                std::string conf = rw.size() >= 9 ? rw[8] : "1";
+                if (conf != "1") continue;           // 未收盘的跳过
+                double o = atof(rw[1].c_str()), c = atof(rw[4].c_str());   // 开/收
+                if (o > 0) hit = (c - o) / o * 100.0 > g_m1Pct;   // 1m K 线涨幅复核
+                break;                               // 只看最近一根已收盘
+            }
+            if (!hit) {                              // 榜单达标但 K 线不达标 → 记流水备查
+                char rb[200];
+                snprintf(rb, sizeof(rb), "INSERT INTO trade_flow (trade_time,inst_id,action,pos_side,remark)"
+                         " VALUES (NOW(),'%s','skip','long','1m榜单#%d 涨幅%.2f%% 但上一根1mK线未>%.1f%%')",
+                         inst.c_str(), ranked, mv.first, g_m1Pct);
+                db_ex(rb);
+                continue;                            // 不开仓
+            }
+        }
+        char rk[64]; snprintf(rk, sizeof(rk), "1m涨幅榜#%d·%.2f%%", ranked, mv.first);   // 信号证据
+        char sq2[1024];                              // signal 流水(买入痕迹)
+        snprintf(sq2, sizeof(sq2),
             "INSERT INTO trade_flow (trade_time,inst_id,action,pos_side,remark)"
-            " VALUES (NOW(),'%s','signal','long','%s')",
-            inst.c_str(), sqlesc(remark).c_str());
-        db_ex(sql);                                     // 执行
-        open_position(inst, "5m+3m金▲共振·1h振幅达标");   // 双周期共振+振幅过滤通过 → 正式开仓
-        opened++;                                       // 本轮开仓计数
+            " VALUES (NOW(),'%s','signal','long','%s 复核通过')", inst.c_str(), rk);
+        db_ex(sq2);
+        open_position(inst, rk);                     // 榜单+复核+闸门全过 → 正式开仓
+        opened++;                                    // 本轮开仓计数
     }
+}
+
+// ---------------- 加仓触发: 1m 放量反弹确认(2026-09-29 用户指定) ----------------
+//   最近已收 1m K 线: 涨幅 (c-o)/o > add_m1_pct(1%) 且 成交量 ≥ add_vol_x(2x)×前20根均量
+//   → "跌够是前提, 大量买入+涨幅>1% 才动手"(底部放量反弹再加, 不接飞刀)
+static bool m1_burst(const std::string& inst) {      // 入参: 合约; 出参: 放量反弹是否成立
+    std::vector<std::vector<std::string>> rows;
+    if (!okx_candles(inst, "1m", 30, 0, false, false, "before", rows)) return false;   // 拉 30 根(1新+基准)
+    double pct1 = -999;                              // 最近已收 1m 涨幅
+    std::vector<double> vols;                        // 已收 1m 量序列(新→旧)
+    for (auto& rw : rows) {                          // rows 新→旧
+        if (rw.size() < 6) continue;
+        std::string conf = rw.size() >= 9 ? rw[8] : "1";
+        if (conf != "1") continue;                   // 只统计已收盘
+        if (vols.empty()) {                          // 最近一根已收: 算涨幅
+            double o = atof(rw[1].c_str()), c = atof(rw[4].c_str());
+            if (o > 0) pct1 = (c - o) / o * 100.0;
+        }
+        vols.push_back(atof(rw[5].c_str()));         // 记量
+        if (vols.size() >= 21) break;                // 1 新 + 20 基准够用
+    }
+    if (vols.size() < 11 || pct1 <= g_addM1Pct) return false;   // 数据不足/涨幅不够 → 不加
+    double sum = 0; int cnt = 0;                     // 前 20 根均量
+    for (size_t i = 1; i < vols.size() && i <= 20; i++) { sum += vols[i]; cnt++; }
+    if (cnt == 0 || sum <= 0) return false;
+    return vols[0] >= g_addVolX * (sum / cnt);       // 最新量 ≥ 倍数×均量 = 大量买入
 }
 
 // ---------------- 持仓看板快照 + 跌时金▲加仓 ----------------
@@ -346,15 +367,15 @@ static void manage_positions() {                        // 每 10 秒执行
         }
         double tpPx = avg * (1.0 + LOCK_TP_PCT);        // 止盈线 = 均价 × (1+2%)  唯一口径
 
-        // 加仓检测: 跌够+三多头(2026-09-29 用户拍板)——双条件缺一不可:
-        //   ① 现价 < 上次加仓价×(1-1%): 跌够才加(首次用开仓均价作基准, 天然"同价位不重复加仓")
-        //   ② 三多头确认 = 3m EMA7>EMA25>EMA99 且收盘在 EMA7 上: 底部呈现多头排列才加, 不接飞刀
-        // 防失控: 单合约 30 分钟冷却 + 全局每小时 ≤6 次 保留; 跌幅阈值 trade_cfg.json add_dip_pct 可调。
+        // 加仓检测: 跌够+放量反弹(2026-09-29 用户拍板)——缺一不可:
+        //   ① 现价 < 基准价×(1-1%): 跌够才加(首次基准=开仓均价, 之后=上次加仓价, 天然"同价位不重复加仓")
+        //   ② 放量反弹确认 = 最近已收 1m K 线涨幅>1% 且 成交量≥2x前20根均量: "大量买入的量+涨幅大于1%"才加
+        // 防失控: 单合约 30 分钟冷却 + 全局每小时 ≤6 次 保留; 阈值 trade_cfg.json 可调。
         double basePx = (lapx > 0 ? lapx : avg);        // 跌幅基准价 = 上次加仓价(从未加过用开仓均价)
         bool canAdd = false;                            // 是否允许加仓
         std::string why;                                // 加仓触发说明
         if (avg > 0 && basePx > 0 && last < basePx * (1.0 - g_addDip)) {   // 条件①: 跌够 1%
-            if (triple_bull_3m(inst)) {                 // 条件②: 3m 三线多头排列(底部转多确认)
+            if (m1_burst(inst)) {                       // 条件②: 1m 放量反弹(大量买入+涨幅>1%)
                 std::string lastAddS = db_scalar("SELECT UNIX_TIMESTAMP(MAX(trade_time)) FROM trade_flow"    // 最近一次加仓时间
                                                  " WHERE inst_id='" + inst + "' AND action='add'", ok);
                 long long lastAdd = lastAddS.empty() ? 0 : atoll_s(lastAddS);   // 0=从未加仓
@@ -363,9 +384,10 @@ static void manage_positions() {                        // 每 10 秒执行
                     "SELECT COUNT(*) FROM trade_flow WHERE action='add' AND trade_time>NOW()-INTERVAL 60 MINUTE", ok));
                 bool hourOk = addsH < 6;                // 每小时≤6次限制
                 if (coolOk && hourOk) {                 // 冷却+频次都过
-                    canAdd = true;                      // 跌够+三多头 → 允许加仓
+                    canAdd = true;                      // 跌够+放量反弹 → 允许加仓
                     char wb[200];                       // 触发说明缓冲
-                    snprintf(wb, sizeof(wb), "低于上次加仓价%.2f%%(基准%.6g 现价%.6g) 三多头确认", g_addDip * 100.0, basePx, last);
+                    snprintf(wb, sizeof(wb), "低于基准价%.2f%%(基准%.6g 现价%.6g) 1m放量反弹>%.1f%%×%.1f倍确认",
+                             g_addDip * 100.0, basePx, last, g_addM1Pct, g_addVolX);
                     why = wb;                           // 落库用
                 }
             }
@@ -374,12 +396,12 @@ static void manage_positions() {                        // 每 10 秒执行
         // 止盈状态/文案: 与 tphub 判定同口径(价格 +2%), 并显示实际杠杆(可能被降档)
         double lever = j_num(p, "lever"); if (lever <= 0) lever = LOCK_LEVER;   // 实际杠杆(异常兜底20x)
         bool tpHit = (last > 0 && avg > 0) ? (last >= tpPx) : (uplRatio >= LOCK_TP_ROI);   // 止盈达标判定(价格优先/ROI兜底)
-        const char* state = canAdd ? "★三多头待加仓"     // 看板状态文案
+        const char* state = canAdd ? "★放量反弹待加仓"     // 看板状态文案
                           : (tpHit ? "★止盈达标"
-                          : (last < basePx * (1 - g_addDip / 2) ? "跌够等三多头" : "持有(未跌够)"));
+                          : (last < basePx * (1 - g_addDip / 2) ? "跌够等放量反弹" : "持有(未跌够)"));
         char note[512];                                 // 看板备注缓冲
         snprintf(note, sizeof(note),                    // 组装与 tphub 同口径的备注
-            "金▲版 | 跌够%.2f%%+三多头加仓+%.2fU | 止盈线%.6f(价格+2%%; %.0fx→ROI%.0f%%) | 不止损 | 现价ROI=%.1f%%",   // 不止损铁律
+            "榜单版 | 跌够%.2f%%+1m放量反弹加仓+%.2fU | 止盈线%.6f(价格+2%%; %.0fx→ROI%.0f%%) | 不止损 | 现价ROI=%.1f%%",   // 不止损铁律
             g_addDip * 100.0, g_addUsd, tpPx, lever, LOCK_TP_PCT * 100.0 * lever, uplRatio * 100.0);
         char sql[2048];                                 // SQL 缓冲
         snprintf(sql, sizeof(sql),                      // 写/更新 grid_signal 持仓看板
@@ -424,33 +446,13 @@ static void minute_snap() {                             // 每分钟执行一次
 
 // ---------------- 主循环 ----------------
 void engine_loop() {                                    // 引擎主循环(主线程)
-    bool bootFed = false;                               // 启动喂库是否完成
-    long long last5mSlot = 0, lastMin = 0, lastReconcile = 0;   // 5m槽/分钟/对账 游标
+    long long lastMin = 0, lastReconcile = 0;   // 分钟/对账 游标
 
     while (g_run) {                                     // 常驻循环(退出靠 g_run)
         trade_hb("tradehub");                           // 每轮刷新心跳文件
         cfg_reload();                                   // 每轮热加载金额配置(trade_cfg.json, 10s 节流)
         try {                                           // 异常兜底: 单轮异常不杀进程
             long long now = (long long)time(nullptr);   // 当前 Unix 秒
-            long long slot5 = (long long)(floor((double)now / 300.0) * 300.0);   // 当前 5m 槽起点
-
-            // ① 启动喂库: 池内全部 × 5m/3m 喂入内存(数据此后滞留本进程)
-            if (!bootFed) {                             // 只在启动时执行一次
-                std::vector<std::string> pool = pool_cached();   // 取权威池
-                eng_log("INFO", "boot", "开始喂DLL内存库: " + std::to_string(pool.size()) + " 合约 × 5m/3m …");   // 喂库开始日志
-                int fed = 0;                            // 已喂计数
-                for (auto& inst : pool) {               // 遍历全池
-                    if (!g_run) break;                  // 退出标志
-                    feed_inst(inst, "5m");              // 喂 5m 全量进内存库
-                    feed_inst(inst, "3m");              // 喂 3m 全量进内存库
-                    fed++;                              // 计数
-                    if (fed % 20 == 0) trade_hb("tradehub");   // 喂库阶段也心跳
-                    if (fed % 50 == 0)                  // 每 50 个打一次进度
-                        eng_log("INFO", "boot", "内存库喂入进度 " + std::to_string(fed) + "/" + std::to_string(pool.size()));
-                }
-                bootFed = true;                         // 标记喂库完成
-                eng_log("INFO", "boot", "DLL内存库喂入完成: 序列数=" + std::to_string(sig_store_stats()));   // 完成日志(约502序列)
-            }
 
             // ② 止盈由 tphub.exe 实时接管, 此处不做(防双卖)
 
@@ -460,23 +462,13 @@ void engine_loop() {                                    // 引擎主循环(主�
             // ④ 对账(每60秒)
             if (now - lastReconcile >= 60) { lastReconcile = now; reconcile(); }   // 60秒一次台账对账
 
-            // ⑤ 每分钟快照
-            if (now / 60 != lastMin) { lastMin = now / 60; minute_snap(); }   // 跨分钟才快照
-
-            // ⑥ 新 5m 槽 → 全池增量喂(5m/3m) + 买入扫描
-            if (slot5 != last5mSlot && bootFed) {       // 进入新 5m 槽且已完成启动喂库
-                last5mSlot = slot5;                     // 更新槽游标
-                std::vector<std::string> pool = pool_cached();   // 取权威池(白名单)
-                if (!pool.empty()) {                    // 池非空才扫
-                    for (auto& inst : pool) {           // 全池增量喂库
-                        if (!g_run) break;              // 退出标志
-                        feed_inst_lite(inst, "5m");     // 增量补最新已收盘 5m
-                        feed_inst_lite(inst, "3m");     // 增量补最新已收盘 3m
-                        Sleep(1);                       // 单核让步
-                    }
-                    buy_scan(pool);                     // 全池买入扫描(六重闸门)
-                }
+            // ⑤ 每分钟: 全市场 1m 涨幅榜买入(2026-09-29 用户指定, 优先级最高, 跨分钟立即执行)
+            if (now / 60 != lastMin) {
+                lastMin = now / 60;                     // 更新分钟游标
+                minute_snap();                          // 每分钟快照(原有功能保留)
+                movers_buy();                           // 涨幅榜前5·1m涨幅>2% → 开仓(闸门/冷却保留)
             }
+
         } catch (...) {                                 // 任意异常兜底
             eng_log("ERROR", "engine", "主循环异常(C++ exception)");   // 记日志继续跑
         }

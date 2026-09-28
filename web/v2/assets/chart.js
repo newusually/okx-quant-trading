@@ -250,9 +250,10 @@ window.OKXChart = (function () {                       // 全局图表模块 OKX
         if (vis.length > 500) vis = vis.slice(vis.length - 500); // 超过500个时只取最近500个，防止标记过密拖慢渲染
         for (var i = 0; i < vis.length; i++) {           // 遍历可见标记
           var m = vis[i];                                // 当前标记
-          if (m.kind !== "buy" && m.kind !== "add" && m.kind !== "close") continue; // 只处理 买/加/平 三类
+          if (m.kind !== "buy" && m.kind !== "add" && m.kind !== "close" && m.kind !== "m1") continue; // 只处理 买/加/平/1m涨幅 四类
           var tm = window.OKXU.alignToBar(times, Math.floor(m.t / 1000) + OFF); // 把标记时间对齐到已存在的K线(二分找<=t的最近bar)
           if (tm < 0) continue;                          // 对齐失败(超出范围)跳过
+          if (m.kind === "m1") arr.push({ time: tm, position: "belowBar", color: "#f6465d", shape: "arrowUp", text: "▲" + (m.strat || "2") + "%", size: 0.8 }); // 1m涨幅>2%标注(红箭头+实际涨幅)
           if (m.kind === "buy") arr.push({ time: tm, position: "belowBar", color: upCol(), shape: "arrowUp", text: "🚀买 2U", size: 1.4 }); // 首买：阳线色上箭头"🚀买 2U"
           else if (m.kind === "add") arr.push({ time: tm, position: "belowBar", color: "#f0b90b", shape: "arrowUp", text: "▲加仓 +1U", size: 1.1 }); // 加仓：金色箭头(每次+1U, 同根3m不重复)
           else {                                         // 平仓标记

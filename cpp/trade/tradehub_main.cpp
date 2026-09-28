@@ -121,22 +121,13 @@ static int selftest() {                        // 返回非0表示自检失败
     tlog("池内合约: " + std::to_string(pool.size()));   // 打印池大小
     if (pool.empty()) { tlog("池为空, 终止"); return 2; }   // 池空视为自检失败
 
-    int fed = 0;                               // 已喂库合约计数
-    for (int i = 0; i < 3 && i < (int)pool.size(); i++) {   // 抽前 3 个合约做喂库+信号验证
+    int fed = 0;                               // 已验证合约计数
+    for (int i = 0; i < 3 && i < (int)pool.size(); i++) {   // 抽前 3 个合约做数据验证
         std::vector<Bar> r5 = kl_engine_rows(pool[i], "5m");  // 取 5m K线(缺自动补)
-        std::vector<Bar> r3 = kl_engine_rows(pool[i], "3m");  // 取 3m K线(缺自动补)
-        sig_feed(pool[i], "5m", r5);           // 喂 5m 进 sigcore 内存库
-        sig_feed(pool[i], "3m", r3);           // 喂 3m 进 sigcore 内存库
-        double k5 = 0, k3 = 0;                 // 5m/3m 金▲ KE 值
-        std::string i5, i3;                    // 5m/3m 信号说明
-        bool f5 = sig_store_gold(pool[i], "5m", k5, i5);   // 判 5m 金▲
-        bool f3 = sig_store_gold(pool[i], "3m", k3, i3);   // 判 3m 金▲
-        tlog(pool[i] + " 5m=" + std::to_string(r5.size()) + "根 金▲=" + (f5 ? "Y" : "N") +   // 打印 5m 根数/金▲/KE
-             " [KE=" + jnum(k5) + " " + i5 + "] | 3m=" + std::to_string(r3.size()) + "根 金▲=" + (f3 ? "Y" : "N") +   // 打印 3m 同口径
-             " [KE=" + jnum(k3) + " " + i3 + "]");
+        tlog(pool[i] + " 5m=" + std::to_string(r5.size()) + "根 (K线数据验证)");   // 打印根数
         fed++;                                 // 完成一个合约
     }
-    tlog("喂库测试 " + std::to_string(fed) + " 个合约 | 内存库序列数=" + std::to_string(sig_store_stats()));   // ③ 喂库统计
+    tlog("数据验证 " + std::to_string(fed) + " 个合约 (sigcore 已退役, 内存库不再使用)");   // ③ 数据统计
 
     std::vector<std::string> objs;             // OKX 持仓对象数组
     bool pok = okx_positions(objs);            // ④ 验证 OKX 私有持仓接口
@@ -173,7 +164,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {   // GUI 无窗口入口
     tlog("DB 已连接 trading@127.0.0.1 (libmysql)");      // DB 就绪
 
     eng_log("INFO", "engine",                  // 策略口径横幅落 logs 表(网页可见)
-            "===== C++ 交易中枢启动 | 买入=5m+3m金▲共振+1h振幅>2%过滤·2U·20X·加仓=跌够1%+三多头确认+1U·止盈=tphub接管·永不止损·金额trade_cfg.json热改 =====");
+            "===== C++ 交易中枢启动 | 买入=全市场1m涨幅榜前10·1m涨幅>2%·每分钟扫·2U·20X·加仓=跌够1%+1m放量反弹>1%·2x量·1U·止盈=tphub接管·永不止损·金额trade_cfg.json热改 =====");
 
     trade_hb("tradehub");                      // 初始化引擎心跳文件
     trade_hb("backfill");                      // 初始化回填心跳文件

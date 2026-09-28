@@ -8,12 +8,12 @@
     2) 工具栏: 绘图工具(趋势线/水平线/矩形/斐波那契等) + 画线颜色/撤销/清空 +
        主图指标(MA/EMA/BOLL) + 副图指标(VOL/MACD/RSI/KDJ) + 显示开关
     3) K线卡片: 实时价图例(随 ticker 跳动) / 悬停 OHLC 浮窗 / 图表容器 /
-       图例说明("5m+3m 金▲共振·1h振幅>2% 开仓" "跌够1%+三多头加仓" "+2% 止盈")
+       图例说明("全市场 1m 涨幅榜前10·1m涨幅>2% 开仓" "跌够1%+1m放量反弹加仓" "+2% 止盈")
     4) 流水卡片: 实时监测(持仓卡片/止盈进度条) + 交易流水表格 + 信号明细/
-       算法转折点双表(KE=½mv² 动能说明)
+       1m 涨幅标注(涨幅>2% K线打标, 0929 起金▲/转折点退役)
     5) 右侧栏: 加仓触发日志 / 守护状态 / 风控铁律参数
     6) 设置抽屉: 图表样式/主图均线/布林带/副图指标/显示项/绘图工具
-    7) 页脚数据源说明 + 版本号 v19(资源 ?v=0929v23 缓存戳)
+    7) 页脚数据源说明 + 版本号 v19(资源 ?v=0929v24 缓存戳)
   【铁律】本文件是 Vue3 模板: 所有绑定表达式(含 sgnCls/dirCls/profitCls/
   pctlCls/isGold/goldN 等方法调用)绝不改动; 比较运算符一律在 JS 方法内,
   模板绑定里禁止出现裸的比较表达式注入; 注释一律加在行尾且不破坏标签。
@@ -24,7 +24,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" data-page-node-id="awOG277ERgo1WB6hfNjhvN"> <!-- 移动端视口适配 -->
 <title>OKX 量化终端 · C++ 内核</title> <!-- 页签标题 -->
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E%F0%9F%93%88%3C/text%3E%3C/svg%3E"> <!-- 内联 SVG 站点图标(📈) -->
-<link rel="stylesheet" href="assets/tw.css?v=0929v23" data-page-node-id="3JApKl4hjvMGFgdBVZMY4E"> <!-- Tailwind 编译产物(v16 版本戳控制缓存) -->
+<link rel="stylesheet" href="assets/tw.css?v=0929v24" data-page-node-id="3JApKl4hjvMGFgdBVZMY4E"> <!-- Tailwind 编译产物(v16 版本戳控制缓存) -->
 </head> <!-- 头部结束 -->
 <body class="bg-ink-900 font-sans text-txt-1 antialiased" data-page-node-id="7vHEE9GU2PlGczbawrJ7oi"> <!-- 深色底/默认字体/正文色/抗锯齿 -->
 <div id="app" v-cloak data-page-node-id="VIFgFszsznboxgzvoHYul5"> <!-- Vue 挂载根节点; v-cloak 防止编译前模板闪烁 -->
@@ -265,12 +265,10 @@
 
         <!-- 图例 -->
         <div class="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-ink-600 px-3 py-2 text-2xs text-txt-3" data-page-node-id="3urv83XwD1dfpSQ0I8Svna"> <!-- 图例说明区 -->
-          <span data-page-node-id="ZToYWM5sYoKH0jSrCAtyo6"><b class="text-up" data-page-node-id="GAwzvdGXiND2sxxKVNgSme">🚀 买</b> 5m+3m 金▲共振·1h振幅&gt;2% 开仓 · 2U</span> <!-- 买入图例(死水过滤) -->
-          <span data-page-node-id="HuaqrXfkSvEl60PCDnJcGI"><b class="text-gold" data-page-node-id="QKCGIRHmhHzXmXR1D7Qqng">▲ 加仓</b> 跌够1%+三线多头确认 · +1U</span> <!-- 加仓图例 -->
+          <span data-page-node-id="ZToYWM5sYoKH0jSrCAtyo6"><b class="text-up" data-page-node-id="GAwzvdGXiND2sxxKVNgSme">🚀 买</b> 全市场1m涨幅榜前10·1m涨幅&gt;2%·每分钟扫 · 2U</span> <!-- 买入图例(涨幅榜制) -->
+          <span data-page-node-id="HuaqrXfkSvEl60PCDnJcGI"><b class="text-gold" data-page-node-id="QKCGIRHmhHzXmXR1D7Qqng">▲ 加仓</b> 跌够1%+1m放量反弹&gt;1%(2x量) · +1U</span> <!-- 加仓图例 -->
           <span data-page-node-id="Ro9X1xpynjMHS4cBlU3qWX"><b class="text-txt-1" data-page-node-id="RDz15XsSPYhV8S4zqNjqke">🍃 平</b> +2% 止盈 · 旁标盈亏(红盈绿亏)</span> <!-- 平仓图例 -->
-          <span data-page-node-id="0fMzDudhe3SOoAf5UR5rhK"><b class="text-gold" data-page-node-id="0SUCY4FH7DRyhLl057IE6n">● 金▲ KE值</b> 底部动能进前25% (KE≥阈值)</span> <!-- 金▲图例 -->
-          <span data-page-node-id="6YS7DNlvbB3kByfaFhyl1S"><b class="text-violet" data-page-node-id="T3siJGc0H0AAknYzpefIyw">● 底</b> 普通转折底 (小字=下跌腿动能)</span> <!-- 转折底图例 -->
-          <span data-page-node-id="zeILeAy4gJFjDnYGQRGxlr"><b class="text-info" data-page-node-id="i0ZWFFBt9i84RKEwF9Mfq1">● 顶</b> 算法转折顶 (达标才标 KE)</span> <!-- 转折顶图例 -->
+          <span data-page-node-id="0fMzDudhe3SOoAf5UR5rhK"><b class="text-up" data-page-node-id="0SUCY4FH7DRyhLl057IE6n">▲ 2%</b> 1分钟K线涨幅&gt;2% (仅1m周期, 红箭头)</span> <!-- 1m涨幅标注图例(金▲已退役) -->
           <span data-page-node-id="ogahSxXah3rAiwugbfXYBD"><b class="text-gold" data-page-node-id="YXnWxtRJKZU2GfM76b9OOJ">┄ 均价</b> 持仓成本线</span> <!-- 均价线图例 -->
           <span data-page-node-id="wZxugfjBBHLHAwG4cu7c8Y"><b class="text-dn" data-page-node-id="YIEBrE0Cgf0fKUvsJkHf2o">┄ 止盈</b> 目标价 +2%</span> <!-- 止盈线图例 -->
           <span class="flex-1" data-page-node-id="KwSpwBPrmDkiffn41mX8eQ"></span> <!-- 弹性占位 -->
@@ -376,42 +374,6 @@
           </div>
         </div>
 
-        <div class="card" data-page-node-id="Nx79STGdSFTpWjrp0wix5Y"> <!-- 算法转折点卡片 -->
-          <div class="card-h" data-page-node-id="OB1gvIvFfGC125AACeHqiT"> <!-- 卡片头 -->
-            <span class="card-t" data-page-node-id="805CsS8AAFIoaCaDw15nyi">📐 算法转折点 <span class="text-3xs text-txt-4" data-page-node-id="6abJg1SEWI7YTXvgqFIr4r">(ZigZag + 力学, 与引擎同源)</span></span> <!-- 标题+来源说明 -->
-            <span class="flex-1" data-page-node-id="oY82sO90dMsZrxOO3JAsir"></span> <!-- 弹性占位 -->
-            <span class="badge border-ink-500 bg-ink-750 text-txt-3" :title="'底部下跌腿动能 KE 的 75 分位阈值(尖转折线) · KE ≥ 此值才算金▲'" data-page-node-id="WFBnT0h3OkdmuZ1kDEs4jF">阈值 {{ th?th.toFixed(1):'--' }}</span> <!-- 金▲KE阈值徽章 -->
-            <span class="badge border-gold/40 bg-gold/10 text-gold" title="本窗口内经阈值确认的金▲数量" data-page-node-id="eRzqlanVHBh23PoqtkFKzE">金▲ {{ goldN }}</span> <!-- 金▲计数徽章 -->
-            <span class="badge border-violet/40 bg-violet/10 text-violet" data-page-node-id="DgXADvsFPgwCajBdwZBNLF">{{ pivots.length }} 个</span> <!-- 转折点总数 -->
-          </div>
-          <div class="max-h-[260px] overflow-y-auto" data-page-node-id="mipIQeaGmCJ4QKDKb5j1CT"> <!-- 表格滚动容器 -->
-            <table class="tbl" data-page-node-id="ZtqiIcX8u7maOe7LG0X3gf"> <!-- 转折点表 -->
-              <thead data-page-node-id="BraQUAFCbyY1Yv0kVO3GNy"><tr data-page-node-id="HGPkcBVoy8G49ALvUvbVZX"><th data-page-node-id="klm1E9PDDAg8AJv1QT08PP">时间</th><th data-page-node-id="9UNtKPz4WT8JF0MavyPy0l">类型</th><th class="text-right" data-page-node-id="QjhGPvq7oZqkH4C0TkuMtE">价格</th><th class="text-right" data-page-node-id="MwvzyIMBHHabqMSfG9wROw">KE=½mv²</th><th class="text-right" data-page-node-id="59uHsiCfVG9P3RxyZdC4dg">动能分位</th><th class="text-right" data-page-node-id="lOAydVts5OAhocYwzWkxYa">F=mg</th><th class="text-right" data-page-node-id="d3nwhbpA1AUy2rTZMViaxg">角°</th></tr></thead> <!-- 表头一行 -->
-              <tbody data-page-node-id="e0uuMGk1PkFEq9iQu3Pbe0"> <!-- 表体 -->
-                <tr v-for="(p,i) in pivRows" :key="i" data-page-node-id="IXQeNH5onykOubwAVlFcoG"> <!-- 转折点行循环 -->
-                  <td class="num text-txt-3" data-page-node-id="SoJxtYa9SdKZ7iFcCi0RBA">{{ ts(p.t) }}</td> <!-- 转折时间 -->
-                  <td data-page-node-id="P8738VMGidoDt5YCBEjAPd"> <!-- 类型单元格 -->
-                    <span class="badge" :class="p.type===0?'border-up/40 bg-up/10 text-up':'border-info/40 bg-info/10 text-info'" data-page-node-id="KNJ2CmVzh0FZZeWCLmEkZU">{{ p.type===0?'底':'顶' }}</span> <!-- 底/顶徽章 -->
-                    <span v-if="isGold(p)" class="badge ml-1 border-gold/40 bg-gold/10 text-gold" data-page-node-id="LXFdfHgTNi5y4PVHFNPi0R">金▲</span> <!-- 金▲徽章(方法判定) -->
-                  </td>
-                  <td class="num text-right" data-page-node-id="o5lPaiggBwacJYbiEG7hEA">{{ fmtPx(p.p) }}</td> <!-- 转折价格 -->
-                  <td class="num text-right text-gold" data-page-node-id="fHAltVbdPOD0Uo90rg8xVQ">{{ p.ke?p.ke.toFixed(1):'—' }}</td> <!-- 动能KE值 -->
-                  <td class="num text-right" :class="pctlCls(p.pctl)">{{ p.pctl!=null?'P'+p.pctl:'—' }}</td> <!-- 动能分位(≥75金色) -->
-                  <td class="num text-right text-txt-2" data-page-node-id="yZmbJ6zt6GkYT6MLMymZDm">{{ p.f?p.f.toFixed(2):'—' }}</td> <!-- 重力F值 -->
-                  <td class="num text-right text-txt-3" data-page-node-id="182SniPq6rKCuYQf4F6Nkx">{{ p.ang?p.ang.toFixed(1):'—' }}</td> <!-- 转折角度 -->
-                </tr>
-                <tr v-if="!pivRows.length" data-page-node-id="MPEszUBAoH9dePWKkekP0R"><td colspan="7" class="py-6 text-center text-2xs text-txt-4" data-page-node-id="i1noUtCJWwvZEXiwTpc43Q">无转折点</td></tr> <!-- 空转折点占位 -->
-              </tbody>
-            </table>
-          </div>
-          <div class="border-t border-ink-600/60 px-3 py-2 text-3xs leading-relaxed text-txt-4" data-page-node-id="oF2xUYgSRDTsH4tKQNmeED"> <!-- KE 公式说明区 -->
-            <b class="text-txt-3" data-page-node-id="1VihDvm0AtvgFSv7SsZQh2">KE=½mv²</b> 是「走进这个转折点的那一段行情」的动能：m=该段均量，v=|Δ价|÷(ATR14×根数)，即<b class="text-txt-3" data-page-node-id="jG0UgKyEkeAAnFgYZvVcee">单位时间和波动率下的速度</b>。<br data-page-node-id="5eXDUs98krTKNnRGz0szl0"> <!-- KE 定义 -->
-            <b class="text-violet" data-page-node-id="j8IMnRNSAhRIHCiO5KiuuX">底点</b>的 KE = <b class="text-up" data-page-node-id="PqFe0s5mV76BBAydSRxsoj">下跌腿</b>动能 → <b class="text-txt-3" data-page-node-id="dzwOZNclrV66g4ZUbcRCf9">越大 = 跌得越急</b>，越容易 V 型反转（实测 60 合约 700 个底：KE 前 25% 的底，后续 6 根超额收益 <b class="text-up" data-page-node-id="ZwPgLBckw0uBWhmDNmUAkq">+0.86%</b>，后 25% 仅 +0.57%）。<br data-page-node-id="C4HMaqiOedFhA6Y74vgpil"> <!-- 底点KE解读 -->
-            <b class="text-info" data-page-node-id="1nuuSsaQyl2frLbaOBPwPb">顶点</b>的 KE = <b class="text-dn" data-page-node-id="05pHQtwg6WguCV3lTCABbl">上涨腿</b>动能 → 越大越容易回落。<br data-page-node-id="A1AUyv6nQSRaYHpeSdRG7A"> <!-- 顶点KE解读 -->
-            KE 是绝对量（量纲含成交量），<b class="text-txt-3" data-page-node-id="NBzV7Z2ygvdmx6WrJsbrp8">只在本合约内有意义</b>，跨合约不可比，所以看「动能分位 P」：P≥75 才算金▲。 <!-- 分位说明 -->
-          </div>
-        </div>
-      </div>
     </section>
 
     <!-- ── 右：持仓 / 网格 / 守护 ── -->
@@ -550,8 +512,7 @@
         <div class="setgrp" data-page-node-id="HiwCuf3KSiTxaCGhsiUF5g"> <!-- 设置组: 显示项 -->
           <h4 data-page-node-id="TFJI4QIRpqYnlEeUygRXfW">显示项</h4> <!-- 组标题 -->
           <div class="setrow" data-page-node-id="phEPDVJ5AK4NT0ug7W3PDr"><span class="k" data-page-node-id="I6rmjwNHTZrIBuAZEbbeVV">交易信号 🚀▲🍃</span><input type="checkbox" class="h-3.5 w-3.5 accent-[#f0b90b]" :checked="cfg.marks" @change="setCfgKey('marks',$event.target.checked)" data-page-node-id="eK1W855dNEnYPhM8iAe6V9"></div> <!-- 买卖信号开关 -->
-          <div class="setrow" data-page-node-id="0lCeoXSMA30eREanLQN8aw"><span class="k" data-page-node-id="PVZWVoOULHOUOZbOuWbYnx">算法转折点 ●</span><input type="checkbox" class="h-3.5 w-3.5 accent-[#f0b90b]" :checked="cfg.pivots" @change="setCfgKey('pivots',$event.target.checked)" data-page-node-id="VVvATy7G49rEeFW0dcZWAQ"></div> <!-- 转折点开关 -->
-          <div class="setrow" data-page-node-id="9PX7FAq99X6eHtvVt3FCe5"><span class="k" data-page-node-id="avDGWzHVDaRgofH0sgPAVb">持仓均价线</span><input type="checkbox" class="h-3.5 w-3.5 accent-[#f0b90b]" :checked="cfg.avgline" @change="setCfgKey('avgline',$event.target.checked)" data-page-node-id="wZIF6sRGLGlJs5Zsp0Td4R"></div> <!-- 均价线开关 -->
+                    <div class="setrow" data-page-node-id="9PX7FAq99X6eHtvVt3FCe5"><span class="k" data-page-node-id="avDGWzHVDaRgofH0sgPAVb">持仓均价线</span><input type="checkbox" class="h-3.5 w-3.5 accent-[#f0b90b]" :checked="cfg.avgline" @change="setCfgKey('avgline',$event.target.checked)" data-page-node-id="wZIF6sRGLGlJs5Zsp0Td4R"></div> <!-- 均价线开关 -->
           <div class="setrow" data-page-node-id="uv72gWjR3MzKFYdV8UNkE9"><span class="k" data-page-node-id="Sd3MWLL4u6k8wgyxxCP5cC">止盈 / 止损线</span><input type="checkbox" class="h-3.5 w-3.5 accent-[#f0b90b]" :checked="cfg.tpline" @change="setCfgKey('tpline',$event.target.checked)" data-page-node-id="dqXYzsWa7UdFf4mKF84UfI"></div> <!-- 止盈线开关 -->
         </div>
 
@@ -585,10 +546,10 @@
 
 </div>
 
-<script src="assets/vue.global.prod.js?v=0929v23"></script> <!-- Vue3 全局构建(生产版) -->
-<script src="assets/lwc5.js?v=0929v23"></script> <!-- Lightweight Charts 图表库 -->
-<script src="assets/okx.js?v=0929v23"></script> <!-- OKXAPI/OKXU 工具模块 -->
-<script src="assets/chart.js?v=0929v23"></script> <!-- OKXChart 图表控制器 -->
-<script src="assets/app.js?v=0929v23"></script> <!-- Vue 主应用(本页面入口) -->
+<script src="assets/vue.global.prod.js?v=0929v24"></script> <!-- Vue3 全局构建(生产版) -->
+<script src="assets/lwc5.js?v=0929v24"></script> <!-- Lightweight Charts 图表库 -->
+<script src="assets/okx.js?v=0929v24"></script> <!-- OKXAPI/OKXU 工具模块 -->
+<script src="assets/chart.js?v=0929v24"></script> <!-- OKXChart 图表控制器 -->
+<script src="assets/app.js?v=0929v24"></script> <!-- Vue 主应用(本页面入口) -->
 </body>
 </html>

@@ -23,7 +23,7 @@ if ($action === '') {                                      // 两种方式都没
 
 /* C++ 组件(apihub) 暴露的全部接口白名单 */
 $ALLOW = ['kline','live','ticker','trades','stats','livestats','gridmon','backcheck',
-          'marks','sigs','sigscan','boot','symbols','settings','account','health','guard','frag']; // 允许透传的 action 白名单(其余一律404)
+          'marks','boot','symbols','settings','account','health','guard','frag']; // 允许透传的 action 白名单(其余一律404)
 if (!in_array($action, $ALLOW, true)) {                    // 动作不在白名单内(严格比较防类型混淆)
     http_response_code(404);                               // 返回 404
     echo '{"ok":false,"error":"unknown action"}';          // 输出未知动作错误

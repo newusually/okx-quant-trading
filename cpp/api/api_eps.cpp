@@ -585,127 +585,6 @@ std::string ep_marks(const Params& q) {    // q: 查询参数(inst/days)
     return "{\"ok\":true,\"data\":[" + body + "]}";   // 成功响应
 }
 
-// ---- /sigs (金▲转折点+力学, 链接 sigcore.cpp 同源计算) ----
-// 转折点信号: 与图表引擎同源计算, 注意输出的 t 为毫秒(与 /kline 的秒不同)
-std::string ep_sigs(const Params& q) {     // q: 查询参数(inst/bar/limit/from/to)
-    std::string inst = get_inst(q);        // 取合约ID
-    std::string bar = P(q, "bar", "5m");   // 周期参数, 默认 5m
-    if (!valid_bar(bar)) bar = "5m";       // 非法周期回退 5m
-    std::vector<Bar> rows = read_recent(inst, bar, (int)std::min<long long>(2000, std::max<long long>(60, numok(P(q, "limit")) ? atoll_s(P(q, "limit")) : 500)));   // 读最近K线(根数限 60~2000, 默认 500)
-    long long from = numok(P(q, "from")) ? atoll_s(P(q, "from")) : 0;   // 起始毫秒过滤(0=不过滤)
-    long long to = numok(P(q, "to")) ? atoll_s(P(q, "to")) : 0;         // 结束毫秒过滤(0=不过滤)
-    if (from > 0) {                        // 有起始过滤
-        std::vector<Bar> f;                // 过滤结果
-        for (auto& r : rows) if (r.tms >= from) f.push_back(r);   // 保留 >= from
-        rows.swap(f);                      // 换回
-    }
-    if (to > 0) {                          // 有结束过滤
-        std::vector<Bar> f;                // 过滤结果
-        for (auto& r : rows) if (r.tms <= to) f.push_back(r);   // 保留 <= to
-        rows.swap(f);                      // 换回
-    }
-    int n = (int)rows.size();              // 过滤后的根数
-    if (n < 10) return "{\"ok\":true,\"data\":[]}";   // 数据太少无法计算
-    std::vector<double> flat(n * 5);       // 展平为 [o,h,l,c,v]*n 的连续数组
-    for (int i = 0; i < n; i++) {          // 逐根展开
-        flat[i * 5] = rows[i].o; flat[i * 5 + 1] = rows[i].h; flat[i * 5 + 2] = rows[i].l;   // 开/高/低
-        flat[i * 5 + 3] = rows[i].c; flat[i * 5 + 4] = rows[i].v;   // 收/量
-    }
-    std::vector<int> idx(n + 2), typ(n + 2), bars(n + 2);   // 转折点: 索引/类型/间隔根数
-    std::vector<double> pv(n + 2), ke(n + 2), g(n + 2), f(n + 2), v(n + 2), m(n + 2), ang(n + 2), a2(n + 2);   // 力学指标: 价/动能/梯度/力/速度/动量/角度/加速度
-    double th = 0;                         // 自适应阈值
-    int np = pivots_full(flat.data(), n, bar.c_str(), idx.data(), typ.data(), pv.data(),   // 调用同源转折点计算引擎
-                         ke.data(), g.data(), f.data(), v.data(), m.data(), ang.data(), a2.data(),
-                         bars.data(), &th, n + 2);   // 输出最多 n+2 个转折点
-    std::string body;                      // JSON 数组体
-    for (int k = 0; k < np; k++) {         // 逐个转折点
-        if (idx[k] < 0 || idx[k] >= n) continue;   // 越界点跳过
-        if (!body.empty()) body += ",";    // 逗号分隔
-        body += "{\"t\":" + std::to_string(rows[idx[k]].tms) +   // 转折点时间(毫秒!与/kline的秒不同)
-                ",\"i\":" + std::to_string(idx[k]) +   // K线索引
-                ",\"p\":" + jnum(pv[k]) +   // 转折价
-                ",\"type\":" + std::to_string(typ[k]) +   // 类型(顶/底)
-                ",\"ke\":" + jnum(ke[k]) + ",\"g\":" + jnum(g[k]) + ",\"f\":" + jnum(f[k]) +   // 动能/梯度/力
-                ",\"v\":" + jnum(v[k]) + ",\"m\":" + jnum(m[k]) + ",\"ang\":" + jnum(ang[k]) +   // 速度/动量/角度
-                ",\"a\":" + jnum(a2[k]) + ",\"bars\":" + std::to_string(bars[k]) + "}";   // 加速度/间隔根数
-    }
-    return "{\"ok\":true,\"bar\":\"" + jesc(bar) + "\",\"th\":" + jnum(th) +   // 周期+自适应阈值
-           ",\"n\":" + std::to_string(n) + ",\"data\":[" + body + "]}";   // 参与计算的根数+转折点数组
-}
-
-// ---- /sigscan (30s 后台缓存) ----
-static std::mutex g_scanMtx;               // 保护扫描缓存的互斥锁
-static std::string g_scanCache = "{\"ok\":true,\"bar\":\"5m\",\"pool\":0,\"data\":[]}";   // 后台线程每 30 秒重建的扫描结果缓存
-void sigscan_rebuild() {                   // 重建扫描缓存(由后台线程周期调用)
-    RowSet pool = db_q("SELECT inst_id FROM symbol_pool ORDER BY inst_id");   // 取合约池
-    if (!pool.ok || pool.rows.empty()) return;   // 池为空直接返回(缓存不变)
-    std::string hits;                      // 命中信号列表
-    int poolN = (int)pool.rows.size();     // 池大小
-    for (auto& r : pool.rows) {            // 逐个合约扫描
-        std::string inst = r[0];           // 合约ID
-        std::vector<Bar> rows = read_recent(inst, "5m", 300);   // 读最近 300 根 5m K线
-        if ((int)rows.size() < 30) continue;   // 不足 30 根跳过
-        int n = (int)rows.size();          // 实际根数
-        std::vector<double> flat(n * 5);   // 展平 OHLCV
-        for (int i = 0; i < n; i++) {      // 逐根展开
-            flat[i * 5] = rows[i].o; flat[i * 5 + 1] = rows[i].h; flat[i * 5 + 2] = rows[i].l;   // 开/高/低
-            flat[i * 5 + 3] = rows[i].c; flat[i * 5 + 4] = rows[i].v;   // 收/量
-        }
-        double ke = 0, th = 0; int dist = 0;   // 动能/阈值/距转折距离
-        char info[160] = { 0 };            // 信号描述缓冲
-        int fired = gold_signal(flat.data(), n, "5m", &ke, &th, &dist, info, 160);   // 调金信号引擎
-        if (fired == 1) {                  // 触发信号才收录
-            if (!hits.empty()) hits += ",";   // 逗号分隔
-            hits += "{\"inst\":\"" + jesc(inst) + "\",\"ke\":" + jnum(ke) + ",\"dist\":" +   // 合约+动能+距离
-                    std::to_string(dist) + ",\"info\":\"" + jesc(info) + "\"}";   // 信号描述
-            if (hits.size() > 4096) break;   // 缓存体上限 4KB, 防过大
-        }
-        Sleep(2);                          // 每合约间睡 2ms, 降低DB/CPU压力
-    }
-    std::string body = "{\"ok\":true,\"bar\":\"5m\",\"pool\":" + std::to_string(poolN) + ",\"data\":[" + hits + "]}";   // 拼完整缓存体
-    std::lock_guard<std::mutex> lk(g_scanMtx);   // 加锁替换缓存
-    g_scanCache = body;                    // 原子性替换
-}
-void sigscan_loop() {                      // 后台扫描线程主循环
-    logline("sigscan 缓存线程启动 (30s)");   // 启动日志
-    while (true) {                         // 永久循环
-        sigscan_rebuild();                 // 重建一次缓存
-        Sleep(30000);                      // 每 30 秒一轮
-    }
-}
-std::string ep_sigscan(const Params& q) {  // /sigscan 接口
-    std::string bar = P(q, "bar", "5m");   // 周期参数, 默认 5m
-    if (!valid_bar(bar)) bar = "5m";       // 非法周期回退 5m
-    if (bar == "5m") {                     // 默认周期 → 直接返回后台缓存
-        std::lock_guard<std::mutex> lk(g_scanMtx);   // 加锁读缓存
-        return g_scanCache;                // 返回 30 秒内刷新的结果
-    }
-    // 非默认周期: 现算(低频场景)
-    RowSet pool = db_q("SELECT inst_id FROM symbol_pool ORDER BY inst_id");   // 取合约池
-    std::string hits;                      // 命中列表
-    if (pool.ok)                           // 查询成功
-        for (auto& r : pool.rows) {        // 逐个合约现算
-            std::vector<Bar> rows = read_recent(r[0], bar, 300);   // 读该周期最近 300 根
-            if ((int)rows.size() < 30) continue;   // 不足 30 根跳过
-            int n = (int)rows.size();      // 实际根数
-            std::vector<double> flat(n * 5);   // 展平 OHLCV
-            for (int i = 0; i < n; i++) {  // 逐根展开
-                flat[i * 5] = rows[i].o; flat[i * 5 + 1] = rows[i].h; flat[i * 5 + 2] = rows[i].l;   // 开/高/低
-                flat[i * 5 + 3] = rows[i].c; flat[i * 5 + 4] = rows[i].v;   // 收/量
-            }
-            double ke = 0, th = 0; int dist = 0;   // 动能/阈值/距离
-            char info[160] = { 0 };        // 信号描述缓冲
-            if (gold_signal(flat.data(), n, bar.c_str(), &ke, &th, &dist, info, 160) == 1) {   // 触发信号
-                if (!hits.empty()) hits += ",";   // 逗号分隔
-                hits += "{\"inst\":\"" + jesc(r[0]) + "\",\"ke\":" + jnum(ke) + ",\"dist\":" +   // 合约+动能+距离
-                        std::to_string(dist) + ",\"info\":\"" + jesc(info) + "\"}";   // 信号描述
-            }
-        }
-    int poolN = pool.ok ? (int)pool.rows.size() : 0;   // 池大小(失败按0)
-    return "{\"ok\":true,\"bar\":\"" + bar + "\",\"pool\":" + std::to_string(poolN) + ",\"data\":[" + hits + "]}";   // 现算结果
-}
-
-// ---- /boot (页面引导数据: 默认合约 + 最近交易合约) ----
 std::string ep_boot(const Params&) {       // 无入参使用
     RowSet rs = db_q("SELECT inst_id FROM trade_flow"   // 查最近 48 小时交易过的合约
                      " WHERE action IN ('buy','add','close') AND trade_time >= NOW() - INTERVAL 48 HOUR"
@@ -789,8 +668,7 @@ std::string ep_health(const Params&) {     // 无入参使用
     }
     RowSet pc = db_q("SELECT COUNT(*) FROM symbol_pool");   // 合约池数量
     int poolN = (pc.ok && !pc.rows.empty()) ? atoi(pc.rows[0][0].c_str()) : 0;   // 失败按 0
-    return "{\"ok\":true,\"dll\":{\"version\":20270927,\"series\":" + std::to_string(store_stats()) +   // 版本+已落库K线序列数
-           "},\"pool\":{\"count\":" + std::to_string(poolN) +   // 合约池数量
+    return "{\"ok\":true,\"dll\":{\"version\":20270929,\"series\":0},\"pool\":{\"count\":" + std::to_string(poolN) +   // 合约池数量
            "},\"lock\":{\"lever\":20,\"entry_usd\":1.0,\"add_usd\":0.3333,\"tp_roi\":0.40,\"sl\":\"永不止损\",\"max_positions\":12},\"report\":\"" +   // 当前锁仓策略参数
            jesc(rep) + "\"}";              // 体检报告文本
 }

@@ -286,23 +286,10 @@ static ChartOut make_chart(const std::string& inst, const std::string& tf, int n
         a1.assign(dea.begin() + start, dea.end());   // DEA 切片
         h1.assign(hist.begin() + start, hist.end());   // MACD 柱切片
     }
-    // 力学(C++)
-    std::vector<int> pidx(n + 2), ptype(n + 2), pbars(n + 2);   // 转折点：下标/类型/跨根数(容量 n+2 防越界写)
-    std::vector<double> pp(n + 2), pke(n + 2), pg(n + 2), pf(n + 2), pv(n + 2), pm(n + 2), pang(n + 2), pa2(n + 2);   // 转折点：价格/动能/重力g/力F/速度/质量/角度等输出数组
-    double th = 0;   // 动能阈值(前25%分位)
-    if (n >= 10) {   // 数据足够才算力学
-        std::vector<double> flat(n * 5);   // 摊平的 OHLCV 数组(pivots_full 的入参格式)
-        for (int i = 0; i < n; i++) {   // 逐根摊平
-            flat[i * 5] = all[i].o; flat[i * 5 + 1] = all[i].h; flat[i * 5 + 2] = all[i].l;   // 开/高/低
-            flat[i * 5 + 3] = all[i].c; flat[i * 5 + 4] = all[i].v;   // 收/量
-        }
-        int np = pivots_full(flat.data(), n, tf.c_str(), pidx.data(), ptype.data(), pp.data(),   // 力学分析：识别转折点并输出 KE/g/F 等
-                             pke.data(), pg.data(), pf.data(), pv.data(), pm.data(), pang.data(),
-                             pa2.data(), pbars.data(), &th, n + 2);   // th 返回动能阈值
-        if (np > 0) { pidx.resize(np > 0 ? np : 0); ptype.resize(np > 0 ? np : 0); pp.resize(np > 0 ? np : 0); pke.resize(np > 0 ? np : 0); }   // 截断到实际点数
-    } else {   // 数据不足
-        pidx.clear(); ptype.clear(); pp.clear(); pke.clear();   // 清空转折点数组
-    }
+    // 力学已删(0929: sigcore 全链路退役) → 金▲标注数组恒空, SVG K线主体保留
+    std::vector<int> pidx, ptype;               // 转折点下标/类型(恒空)
+    std::vector<double> pp, pke;                // 转折点价格/动能(恒空)
+    double th = 0;                              // 阈值恒 0
     // 是否还有更早的K线可加载(决定"左移贴边自动加载")
     co.hasMore = false;   // 默认没有更早数据
     if (n > 0) {   // 有数据才查
