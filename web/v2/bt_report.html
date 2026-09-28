@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<!-- ==================================================================
+  bt_report.html — AI 模拟回测报告详情页 (静态自包含, 零CDN零依赖)
+  数据源: GET /btreport?id=场次ID (apihub C++ 接口, Apache 反代同源)
+  页面只做展示不做任何模拟; 内容: 头部概要 + 双王卡片 + 柱状图/饼图/折线图
+  + 前十榜(评语/获奖感言/成交明细) + 全员100榜 + 策略优缺点总结
+  ================================================================== -->
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">                                     <!-- UTF-8 中文 -->
+<meta name="viewport" content="width=device-width, initial-scale=1">   <!-- 移动适配 -->
+<title>🧪 AI 模拟回测报告</title>                          <!-- 页签标题 -->
+<style>
+  /* ---------- 基础(与 v2 面板同色系: 深色金融风) ---------- */
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background:#12151c; color:#d8dde8; font:14px/1.6 "Segoe UI","Microsoft YaHei",sans-serif; padding:16px; }
+  a { color:#f0b93c; text-decoration:none; }
+  .num { font-variant-numeric: tabular-nums; }
+  .up { color:#f6465d; }                                    /* 中国行情惯例: 涨红 */
+  .dn { color:#2ebd85; }                                    /* 跌绿 */
+  .card { background:#1a1f2b; border:1px solid #2a3040; border-radius:12px; padding:14px; margin-bottom:14px; }
+  h2 { font-size:15px; color:#f0b93c; margin-bottom:10px; }
+  .muted { color:#8b93a7; font-size:12px; }
+  table { width:100%; border-collapse:collapse; font-size:12.5px; }
+  th { color:#8b93a7; font-weight:600; text-align:right; padding:5px 8px; border-bottom:1px solid #2a3040; white-space:nowrap; }
+  td { padding:5px 8px; text-align:right; border-bottom:1px solid #202635; white-space:nowrap; }
+  th:first-child, td:first-child { text-align:left; }
+  tr:hover td { background:rgba(240,185,60,.05); }
+  details summary { cursor:pointer; color:#f0b93c; font-size:13px; padding:4px 0; user-select:none; }
+  /* ---------- 头部 ---------- */
+  .hd { display:flex; flex-wrap:wrap; align-items:baseline; gap:10px; }
+  .hd .big { font-size:20px; font-weight:700; color:#fff; }
+  .pill { display:inline-block; background:rgba(240,185,60,.12); border:1px solid rgba(240,185,60,.4); color:#f0b93c; border-radius:99px; padding:2px 10px; font-size:12px; }
+  /* ---------- 双王卡片 ---------- */
+  .kings { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  @media (max-width:700px){ .kings { grid-template-columns:1fr; } }
+  .king { border-radius:12px; padding:14px; border:1px solid; }
+  .king.long { border-color:rgba(246,70,93,.5); background:linear-gradient(135deg, rgba(246,70,93,.10), rgba(26,31,43,.6)); }
+  .king.short { border-color:rgba(46,189,133,.5); background:linear-gradient(135deg, rgba(46,189,133,.10), rgba(26,31,43,.6)); }
+  .king .medal { font-size:22px; }
+  .king .name { font-size:18px; font-weight:700; color:#fff; }
+  .king .ret { font-size:26px; font-weight:800; }
+  .king .meta { font-size:12px; color:#aab2c2; margin-top:2px; }
+  .speech { margin-top:8px; background:rgba(0,0,0,.28); border-left:3px solid #f0b93c; padding:8px 10px; border-radius:6px; font-size:12.5px; color:#e8ddc0; }
+  .cmt { margin-top:6px; font-size:12px; color:#aab2c2; }
+  /* ---------- 图表区 ---------- */
+  .charts { display:grid; grid-template-columns:2fr 1fr 1fr; gap:12px; }
+  @media (max-width:900px){ .charts { grid-template-columns:1fr; } }
+  .chart-title { font-size:12px; color:#8b93a7; margin-bottom:6px; }
+  svg text { fill:#8b93a7; font-size:10px; }
+  /* ---------- 前十卡片 ---------- */
+  .t10 { border-top:1px dashed #2a3040; padding:12px 2px; }
+  .t10 .row1 { display:flex; flex-wrap:wrap; align-items:baseline; gap:8px; }
+  .t10 .trades { margin-top:8px; max-height:240px; overflow-y:auto; }
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- 头部: 场次信息 -->
+  <div class="card" id="hd">加载中…</div>
+  <div id="main" style="display:none">
+    <!-- 双王卡片 -->
+    <div class="kings">
+      <div class="king long" id="kingL"></div>
+      <div class="king short" id="kingS"></div>
+    </div>
+    <div style="height:14px"></div>
+    <!-- 三图区: 柱状(前十收益) / 饼图(方法分布) / 折线(前三权益曲线) -->
+    <div class="charts">
+      <div class="card"><div class="chart-title">📊 前十收益柱状图 (%)</div><div id="bar"></div></div>
+      <div class="card"><div class="chart-title">🥧 前十方法分布</div><div id="pie"></div></div>
+      <div class="card"><div class="chart-title">📈 前三权益曲线 (1000U 起)</div><div id="line"></div></div>
+    </div>
+    <!-- 前十详细(评语+感言+明细) -->
+    <div class="card"><h2>🏆 前十榜单 · 评价与获奖感言</h2><div id="t10"></div></div>
+    <!-- 策略总结 -->
+    <div class="card"><h2>🧭 策略优缺点总结 (自动统计)</h2><div id="sum"></div></div>
+    <!-- 全员100榜 -->
+    <div class="card"><h2>📋 全员排行榜</h2><details open><summary>展开 / 收起 100 人</summary><div id="all" style="margin-top:8px"></div></details></div>
+  </div>
+</div>
+<script>
+/* ================= 工具 ================= */
+function up(v){ return v >= 0; }                                   // 盈亏配色(红涨绿跌)
+function cls(v){ return up(v) ? "up" : "dn"; }                     // class 名
+function fmt(v, d){ return (v>=0?"+":"") + v.toFixed(d===undefined?1:d); }   // 带符号数字
+function dt(ms){ var d=new Date(ms),p=function(x){return (x<10?"0":"")+x;};    // 完整时间
+  return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+" "+p(d.getHours())+":"+p(d.getMinutes()); }
+function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }   // HTML 转义
+function dirName(d){ return d===1?"做多":d===-1?"做空":"双向自适应"; }       // 方向名
+function dirCls(d){ return d===1?"up":d===-1?"dn":""; }                     // 方向配色
+var MEDALS=["🥇","🥈","🥉","4️⃣","5️⃣","6️⃣","7️⃣","8️⃣","9️⃣","🔟"];           // 前十徽章
+var PIE_COLORS=["#f6465d","#f0b93c","#2ebd85","#5b8def","#b57de0","#e07b54","#3bc9c9","#8b93a7"];   // 饼图色板
+
+/* ================= SVG 图表 ================= */
+/* 柱状图: rows=[{nm,ret}], 涨红跌绿 */
+function barChart(rows){
+  var W=560,H=240,P=34, bw=(W-P-10)/rows.length;                    // 画布尺寸/柱宽
+  var mx=0; rows.forEach(function(r){ mx=Math.max(mx,Math.abs(r.ret)); }); mx=Math.max(mx,1);   // 纵轴满量程
+  var y0=H-P, mid=y0-((y0-14)/2);                                   // 零轴位置(量程对称)
+  var s='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%">';
+  s+='<line x1="'+P+'" y1="'+mid+'" x2="'+(W-4)+'" y2="'+mid+'" stroke="#3a4256" stroke-width="1"/>';   // 零轴
+  rows.forEach(function(r,i){
+    var h=Math.abs(r.ret)/mx*((y0-14)/2), x=P+i*bw+bw*0.18, w=bw*0.64;   // 柱高/位置
+    var y=r.ret>=0?mid-h:mid, c=r.ret>=0?"#f6465d":"#2ebd85";            // 零轴上方为正
+    s+='<rect x="'+x+'" y="'+y+'" width="'+w+'" height="'+Math.max(h,1)+'" fill="'+c+'" rx="2"/>';
+    s+='<text x="'+(x+w/2)+'" y="'+(r.ret>=0?y-4:y+h+11)+'" text-anchor="middle" fill="'+c+'">'+fmt(r.ret,0)+'</text>';   // 数值
+    s+='<text x="'+(x+w/2)+'" y="'+(H-8)+'" text-anchor="middle">'+esc(r.nm)+'</text>';                  // 名字
+  });
+  return s+'</svg>';
+}
+/* 饼图: items=[{k,v}] */
+function pieChart(items){
+  var tot=0; items.forEach(function(x){ tot+=x.v; }); if(!tot) return "";
+  var cx=90,cy=90,R=72,a0=-Math.PI/2;                                // 圆心半径起始角
+  var s='<svg viewBox="0 0 340 190" style="width:100%">';
+  items.forEach(function(x,i){                                       // 逐扇区
+    var a1=a0+x.v/tot*Math.PI*2, large=a1-a0>Math.PI?1:0;            // 终角/大弧标志
+    var x0=cx+R*Math.cos(a0), y0=cy+R*Math.sin(a0), x1=cx+R*Math.cos(a1), y1=cy+R*Math.sin(a1);
+    s+='<path d="M'+cx+' '+cy+' L'+x0.toFixed(1)+' '+y0.toFixed(1)+' A'+R+' '+R+' 0 '+large+' 1 '+x1.toFixed(1)+' '+y1.toFixed(1)+' Z" fill="'+PIE_COLORS[i%PIE_COLORS.length]+'" opacity="0.88"/>';
+    var lx=cx+(R+16)*Math.cos((a0+a1)/2), ly=cy+(R+16)*Math.sin((a0+a1)/2);   // 图例文字位置
+    s+='<text x="'+lx.toFixed(1)+'" y="'+ly.toFixed(1)+'" text-anchor="middle" fill="#c8cfdb">'+esc(x.k)+' '+Math.round(x.v/tot*100)+'%</text>';
+    a0=a1;
+  });
+  return s+'</svg>';
+}
+/* 折线图: series=[{nm,cv,color}] */
+function lineChart(series){
+  var W=360,H=240,P=30, mn=1e18,mx=-1e18;
+  series.forEach(function(s){ s.cv.forEach(function(v){ if(v<mn)mn=v; if(v>mx)mx=v; }); });
+  if(mx<=mn) mx=mn+1;                                                // 防零跨度
+  var X=function(i,n){ return P+(W-P-8)*i/Math.max(1,n-1); };        // 横坐标映射
+  var Y=function(v){ return 12+(H-2*P)*(1-(v-mn)/(mx-mn)); };        // 纵坐标映射
+  var s='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%">';
+  s+='<line x1="'+P+'" y1="'+Y(1000)+'" x2="'+(W-8)+'" y2="'+Y(1000)+'" stroke="#3a4256" stroke-dasharray="4 3"/>';   // 本金基准线
+  s+='<text x="'+(P-4)+'" y="'+(Y(1000)+3)+'" text-anchor="end">1000</text>';
+  series.forEach(function(se){                                       // 逐条曲线
+    var pts=""; se.cv.forEach(function(v,i){ pts+=X(i,se.cv.length).toFixed(1)+","+Y(v).toFixed(1)+" "; });
+    s+='<polyline points="'+pts+'" fill="none" stroke="'+se.color+'" stroke-width="1.8"/>';
+    s+='<text x="'+P+'" y="'+(Y(se.cv[se.cv.length-1])-4)+'" fill="'+se.color+'">'+esc(se.nm)+'</text>';   // 曲线标注
+  });
+  return s+'</svg>';
+}
+
+/* ================= 主渲染 ================= */
+var REP=null;                                                        // 全场数据缓存
+function render(){                                                   // 全页渲染入口
+  var d=REP, rows=d.summary.rows, top=d.top10.top;                   // 全员行 / 前十
+  /* -- 头部 -- */
+  document.getElementById("hd").innerHTML=
+    '<div class="hd"><span class="big">🧪 AI 模拟回测报告 #'+d.id+'</span>'+
+    '<span class="pill">'+dt(d.ts)+'</span>'+
+    '<span class="pill">窗口 '+dt(d.ps).slice(5,16)+' ~ '+dt(d.pe).slice(5,16)+'</span>'+
+    '<span class="pill">'+d.traders+' 人</span><span class="pill">'+d.contracts+' 合约</span>'+
+    '<span class="pill num">'+d.trades+' 笔</span></div>'+
+    '<div class="muted" style="margin-top:6px">硬规则: 10x 杠杆 · 禁死扛(人人止损+最长3天) · 网格跌档0.5%加仓(30分冷却+每小时≤6) · 第3次加仓直接平仓 · 手续费0.05%/边 · 1000U 起步</div>';
+  /* -- 双王 -- */
+  var bestL=null,bestS=null; rows.forEach(function(r){               // 找多王/空王
+    if(r.dr===1&&(!bestL||r.fin>bestL.fin)) bestL=r;
+    if(r.dr===-1&&(!bestS||r.fin>bestS.fin)) bestS=r; });
+  function kingHTML(r,side){                                         // 王者卡片
+    if(!r) return '<div class="king '+side+'"><div class="medal">👑</div><div class="meta">本场无该方向交易员</div></div>';
+    return '<div class="medal">'+(side==="long"?"👑 多头王":"👑 空头王")+'</div>'+
+      '<div class="name">'+esc(r.nm)+'</div>'+
+      '<div class="meta">'+esc(r.ar)+' · '+dirName(r.dr)+' · 性格「'+esc(r.tp)+'」· '+Math.round(r.sz*100)+'%仓 · 止盈'+(r.tpv*100)+'%/止损'+(r.slv*100)+'%</div>'+
+      '<div class="ret '+cls(r.ret)+' num">'+fmt(r.ret)+'%</div>'+
+      '<div class="meta num">期末 '+r.fin.toFixed(0)+'U · 回撤 -'+r.dd.toFixed(1)+'% · 胜率 '+r.win.toFixed(0)+'% ('+r.ntr+'笔) · 强平 '+r.liq+' · 手续费 '+r.fee.toFixed(1)+'U</div>'+
+      (r.cm?'<div class="cmt">评委点评: '+esc(r.cm)+'</div>':'')+
+      (r.sp?'<div class="speech">🎙 '+esc(r.sp)+'</div>':'');
+  }
+  document.getElementById("kingL").innerHTML=kingHTML(bestL,"long");     // 多王
+  document.getElementById("kingS").innerHTML=kingHTML(bestS,"short");    // 空王
+  /* -- 三图 -- */
+  document.getElementById("bar").innerHTML=barChart(top.slice(0,10).map(function(r){ return {nm:r.nm, ret:r.ret}; }));   // 前十柱状
+  var byArch={}; top.forEach(function(r){ byArch[r.ar]=(byArch[r.ar]||0)+1; });   // 前十方法计数
+  document.getElementById("pie").innerHTML=pieChart(Object.keys(byArch).map(function(k){ return {k:k, v:byArch[k]}; }));   // 方法饼图
+  var LC=["#f6465d","#f0b93c","#2ebd85"];                            // 前三曲线配色
+  document.getElementById("line").innerHTML=lineChart(top.slice(0,3).map(function(r,i){ return {nm:r.nm, cv:r.cv, color:LC[i]}; }));   // 权益折线
+  /* -- 前十详细 -- */
+  var h='';
+  top.forEach(function(r,i){                                         // 逐人卡片
+    h+='<div class="t10"><div class="row1">'+
+      '<span style="font-size:17px">'+MEDALS[i]+'</span>'+
+      '<b style="font-size:15px;color:#fff">'+esc(r.nm)+'</b>'+
+      '<span class="muted">'+esc(r.ar)+'·'+dirName(r.dr)+'·「'+esc(r.tp)+'」</span>'+
+      '<span class="num '+cls(r.ret)+'" style="font-size:15px;font-weight:700">'+fmt(r.ret)+'%</span>'+
+      '<span class="muted num">回撤-'+r.dd.toFixed(1)+'% · 胜率'+r.win.toFixed(0)+'% · '+r.ntr+'笔 · 强平'+r.liq+' · 3次加仓平仓'+r.f3+'次 · 费'+r.fee.toFixed(1)+'U</span></div>'+
+      (r.cm?'<div class="cmt">📝 评委: '+esc(r.cm)+'</div>':'')+
+      (r.sp?'<div class="speech">🎙 获奖感言: '+esc(r.sp)+'</div>':'');
+    if(r.tr&&r.tr.length){                                           // 成交明细(默认收起)
+      h+='<details><summary>成交明细 (最近 '+r.tr.length+' 笔)</summary><div class="trades"><table><tr><th>时间</th><th>合约</th><th>动作</th><th>价格</th><th>盈亏</th></tr>';
+      r.tr.forEach(function(t){                                      // 逐笔
+        h+='<tr><td class="num muted">'+dt(t.ts)+'</td><td>'+esc(t["in"])+'</td><td>'+esc(t.a)+'</td>'+
+           '<td class="num">'+t.px+'</td>'+
+           '<td class="num '+(t.pn===null?"muted":cls(t.pn))+'">'+(t.pn===null?"—":fmt(t.pn,2)+'U')+'</td></tr>';
+      });
+      h+='</table></div></details>';
+    }
+    h+='</div>';
+  });
+  document.getElementById("t10").innerHTML=h;
+  /* -- 策略总结(自动统计: 各方法平均收益/多空对比/性格观察) -- */
+  var ag={}, tg={}, lp=0, sp2=0;                                     // 方法聚合/性格聚合/多空总利润
+  rows.forEach(function(r){
+    (ag[r.ar]=ag[r.ar]||[]).push(r.ret);
+    (tg[r.tp]=tg[r.tp]||[]).push(r.ret);
+    lp+=r.lp; sp2+=r.sp;
+  });
+  var arr=[]; for(var k in ag){ var m=ag[k].reduce(function(a,b){return a+b;},0)/ag[k].length;
+    arr.push({k:k, m:m, n:ag[k].length}); }
+  arr.sort(function(a,b){ return b.m-a.m; });                        // 按平均收益降序
+  var sh='<table><tr><th>方法</th><th>人数</th><th>平均收益</th><th>一句话点评</th></tr>';
+  var CMTS={"布林回归":"均值回归吃震荡, 胜率高但怕单边连锤","三线排列":"顺大流稳, 震荡市会被反复打脸","动量追单":"追高接飞刀, 手续费是隐形杀手","RSI极值":"极端位置反转, 信号少而精","急跌接针":"接得准是肉, 接不准是刀","突破追高":"趋势确认入场, 假突破是命门","变色龙":"看状态换打法, 全天候但反应慢半拍","箱体高抛":"低买高卖赚区间, 破位就撤"};
+  arr.forEach(function(x,i){                                         // 逐方法行
+    sh+='<tr><td>'+(i===0?"🥇 ":i===arr.length-1?"💀 ":"")+esc(x.k)+'</td><td class="muted">'+x.n+'</td>'+
+        '<td class="num '+cls(x.m)+'">'+fmt(x.m)+'%</td><td class="muted" style="text-align:left;white-space:normal">'+(CMTS[x.k]||"")+'</td></tr>';
+  });
+  sh+='</table>';
+  var bestT=null,worstT=null;                                        // 最佳/最差性格
+  for(var k2 in tg){ var m2=tg[k2].reduce(function(a,b){return a+b;},0)/tg[k2].length;
+    if(!bestT||m2>bestT.m) bestT={k:k2,m:m2};
+    if(!worstT||m2<worstT.m) worstT={k:k2,m:m2}; }
+  sh+='<div style="margin-top:10px;font-size:13px">'+
+    '<p>📌 <b>方向总账</b>: 全员做多合计 <b class="num '+cls(lp)+'">'+fmt(lp,1)+'U</b>, 做空合计 <b class="num '+cls(sp2)+'">'+fmt(sp2,1)+'U</b> — 本月风向 '+
+    (lp>sp2?'偏多, 顺势做多的人吃肉':'偏空, 逆势做空的人吃肉')+'。</p>'+
+    '<p>📌 <b>性格观察</b>: 平均成绩最佳性格「'+esc(bestT.k)+'」('+fmt(bestT.m)+'%), 最拖后腿「'+esc(worstT.k)+'」('+fmt(worstT.m)+'%)。</p>'+
+    '<p>📌 <b>可借鉴</b>: 平均收益第一的「'+esc(arr[0].k)+'」值得纳入实盘观察池; 垫底的「'+esc(arr[arr.length-1].k)+'」建议远离。前十共同点: 有止损、仓位有上限、绝不第三次加仓。</p></div>';
+  document.getElementById("sum").innerHTML=sh;
+  /* -- 全员榜 -- */
+  var ah='<table><tr><th>#</th><th>名字</th><th>方法</th><th>方向</th><th>性格</th><th>仓位</th><th>止盈/止损</th><th>期末</th><th>收益</th><th>回撤</th><th>笔数</th><th>胜率</th><th>强平</th><th>手续费</th></tr>';
+  rows.forEach(function(r,i){                                        // 100 行
+    ah+='<tr><td class="muted">'+(i+1)+'</td><td>'+esc(r.nm)+'</td><td>'+esc(r.ar)+'</td>'+
+        '<td class="'+dirCls(r.dr)+'">'+dirName(r.dr)+'</td><td>'+esc(r.tp)+'</td>'+
+        '<td class="num">'+Math.round(r.sz*100)+'%</td><td class="num muted">'+(r.tpv*100)+'%/'+(r.slv*100)+'%</td>'+
+        '<td class="num">'+r.fin.toFixed(0)+'</td><td class="num '+cls(r.ret)+'">'+fmt(r.ret)+'%</td>'+
+        '<td class="num muted">-'+r.dd.toFixed(0)+'%</td><td class="num">'+r.ntr+'</td>'+
+        '<td class="num">'+r.win.toFixed(0)+'%</td><td class="num">'+r.liq+'</td><td class="num muted">'+r.fee.toFixed(1)+'</td></tr>';
+  });
+  document.getElementById("all").innerHTML=ah+'</table>';
+  document.getElementById("main").style.display="";                  // 显示主体
+}
+/* ================= 启动: 拉数据并渲染 ================= */
+(function(){
+  var id=new URLSearchParams(location.search).get("id")||"";         // 场次 ID
+  fetch("/btreport?id="+id, {cache:"no-store"}).then(function(r){ return r.json(); }).then(function(j){
+    if(!j||!j.ok||!j.summary){ document.getElementById("hd").textContent="报告加载失败: "+(j&&j.error||"未知错误"); return; }
+    REP=j; render();                                                 // 缓存并渲染
+  }).catch(function(e){ document.getElementById("hd").textContent="网络错误: "+e; });
+})();
+</script>
+</body>
+</html>

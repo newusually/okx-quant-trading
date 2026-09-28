@@ -130,6 +130,8 @@ static void handle_req(const std::string& target, std::string& outBody, int& out
     else if (action == "account")     outBody = ep_account(q);   // 账户(OKX签名)
     else if (action == "health")      outBody = ep_health(q);   // 健康自检
     else if (action == "guard")       outBody = ep_guard(q);   // 守护状态
+    else if (action == "btlist")      outBody = ep_btlist(q);  // AI模拟回测报告列表(最近n场)
+    else if (action == "btreport")    outBody = ep_btreport(q);   // 单场完整报告(?id=)
     else { outBody = "{\"ok\":false,\"error\":\"unknown action: " + jesc(action) + "\"}"; outCode = 404; }   // 未知路由 → 404
 }
 

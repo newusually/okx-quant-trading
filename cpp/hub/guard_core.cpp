@@ -83,7 +83,7 @@ Target g_tg[] = {                                    // 全局监控目标表(�
 const int g_tgN = (int)(sizeof(g_tg) / sizeof(g_tg[0]));   // 目标个数(6), 供各处循环使用
 
 static const char* g_fixTasks[] = {                  // 配置自愈覆盖的计划任务清单
-    "finally_fill1m", "finally_apihub", "finally_tphub", "finally_guard",
+    "finally_fill1m", "finally_apihub", "finally_tphub", "finally_guard", "finally_bttimer",
     // finally_phpengine / finally_phpfill 已按"去PHP"指令停用, 不再纳入配置自愈   —— 原任务列表备注
 };
 static const int g_fixTaskN = (int)(sizeof(g_fixTasks) / sizeof(g_fixTasks[0]));   // 自愈任务个数(4)

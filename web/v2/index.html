@@ -13,7 +13,7 @@
        算法转折点双表(KE=½mv² 动能说明)
     5) 右侧栏: 加仓触发日志 / 守护状态 / 风控铁律参数
     6) 设置抽屉: 图表样式/主图均线/布林带/副图指标/显示项/绘图工具
-    7) 页脚数据源说明 + 版本号 v19(资源 ?v=0929v19 缓存戳)
+    7) 页脚数据源说明 + 版本号 v19(资源 ?v=0929v20 缓存戳)
   【铁律】本文件是 Vue3 模板: 所有绑定表达式(含 sgnCls/dirCls/profitCls/
   pctlCls/isGold/goldN 等方法调用)绝不改动; 比较运算符一律在 JS 方法内,
   模板绑定里禁止出现裸的比较表达式注入; 注释一律加在行尾且不破坏标签。
@@ -24,7 +24,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" data-page-node-id="awOG277ERgo1WB6hfNjhvN"> <!-- 移动端视口适配 -->
 <title>OKX 量化终端 · C++ 内核</title> <!-- 页签标题 -->
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E%F0%9F%93%88%3C/text%3E%3C/svg%3E"> <!-- 内联 SVG 站点图标(📈) -->
-<link rel="stylesheet" href="assets/tw.css?v=0929v19" data-page-node-id="3JApKl4hjvMGFgdBVZMY4E"> <!-- Tailwind 编译产物(v16 版本戳控制缓存) -->
+<link rel="stylesheet" href="assets/tw.css?v=0929v20" data-page-node-id="3JApKl4hjvMGFgdBVZMY4E"> <!-- Tailwind 编译产物(v16 版本戳控制缓存) -->
 </head> <!-- 头部结束 -->
 <body class="bg-ink-900 font-sans text-txt-1 antialiased" data-page-node-id="7vHEE9GU2PlGczbawrJ7oi"> <!-- 深色底/默认字体/正文色/抗锯齿 -->
 <div id="app" v-cloak data-page-node-id="VIFgFszsznboxgzvoHYul5"> <!-- Vue 挂载根节点; v-cloak 防止编译前模板闪烁 -->
@@ -113,8 +113,22 @@
   <!-- ═══════════ 主体 ═══════════ -->
   <main class="grid grid-cols-1 gap-3 p-3 xl:grid-cols-[minmax(0,1fr)_338px]" data-page-node-id="kJge1xXZ7rCUxBbUOHCquM"> <!-- 主体两栏(宽屏左自适应+右338px) -->
 
-    <!-- ── 主列：K线 → 实时监测 → 交易流水 → 信号明细 ── -->
+    <!-- ── 主列：模拟回测报告 → K线 → 实时监测 → 交易流水 → 信号明细 ── -->
     <section class="flex min-w-0 flex-col gap-3" data-page-node-id="efrZOTnls72akdAaY6ZoKf"> <!-- 主列纵向排列 -->
+      <div class="card" style="border:1px solid rgba(240,185,60,.45);box-shadow:0 0 14px rgba(240,185,60,.18)" data-page-node-id="BTpanelCard001"> <!-- AI模拟回测报告面板(金框醒目, 内联样式免Tailwind重编) -->
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 12px;border-bottom:1px solid rgba(240,185,60,.25)" data-page-node-id="BTpanelHead001"> <!-- 面板头 -->
+          <b style="font-size:13px;color:#f0b93c">🧪 AI 模拟回测报告 <span style="font-size:10px;color:#8b93a7;font-weight:400">每小时自动开赛 · 100人×全市场×多空 · 点击行看详情</span></b> <!-- 标题 -->
+          <span style="font-size:10px;color:#8b93a7">{{ btList.length ? '已更新 ' + btList.length + ' 场' : '等待首轮报告…' }}</span> <!-- 场次计数 -->
+        </div>
+        <div style="max-height:99px;overflow-y:auto" data-page-node-id="BTpanelBody001"> <!-- 列表体(只显3行, 超出滚动) -->
+          <div v-for="r in btList" :key="r.id" @click="openBt(r.id)" style="display:flex;align-items:center;gap:10px;padding:6px 12px;border-bottom:1px dashed rgba(139,147,167,.18);cursor:pointer" onmouseover="this.style.background='rgba(240,185,60,.07)'" onmouseout="this.style.background=''" data-page-node-id="BTpanelRow001"> <!-- 报告行(悬停高亮) -->
+            <span class="num" style="flex:none;font-size:11px;color:#f0b93c">{{ btTime(r.ts) }}</span> <!-- 报告时刻 -->
+            <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:#d8dde8" :title="r.brief">{{ r.brief }}</span> <!-- 一句话简介 -->
+            <span style="flex:none;font-size:11px;color:#f0b93c">详报 ›</span> <!-- 打开提示 -->
+          </div>
+          <div v-if="!btList.length" style="padding:14px 12px;font-size:12px;color:#8b93a7" data-page-node-id="BTpanelEmpty001">首轮模拟进行中（回填全市场 3m/5m/15m → 千问生成人格 → 模拟）…</div> <!-- 空态 -->
+        </div>
+      </div>
       <div class="card overflow-hidden" data-page-node-id="C6vmlGLQM1Ohzr1jSeApg8"> <!-- K线卡片容器 -->
         <!-- 图表头 -->
         <div class="flex flex-wrap items-center gap-2 border-b border-ink-600 px-3 py-2" data-page-node-id="FHuSTjF3HI3NP9TaagIeOo"> <!-- 图表头(可换行) -->
@@ -568,10 +582,10 @@
 
 </div>
 
-<script src="assets/vue.global.prod.js?v=0929v19"></script> <!-- Vue3 全局构建(生产版) -->
-<script src="assets/lwc5.js?v=0929v19"></script> <!-- Lightweight Charts 图表库 -->
-<script src="assets/okx.js?v=0929v19"></script> <!-- OKXAPI/OKXU 工具模块 -->
-<script src="assets/chart.js?v=0929v19"></script> <!-- OKXChart 图表控制器 -->
-<script src="assets/app.js?v=0929v19"></script> <!-- Vue 主应用(本页面入口) -->
+<script src="assets/vue.global.prod.js?v=0929v20"></script> <!-- Vue3 全局构建(生产版) -->
+<script src="assets/lwc5.js?v=0929v20"></script> <!-- Lightweight Charts 图表库 -->
+<script src="assets/okx.js?v=0929v20"></script> <!-- OKXAPI/OKXU 工具模块 -->
+<script src="assets/chart.js?v=0929v20"></script> <!-- OKXChart 图表控制器 -->
+<script src="assets/app.js?v=0929v20"></script> <!-- Vue 主应用(本页面入口) -->
 </body>
 </html>

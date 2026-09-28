@@ -829,3 +829,38 @@ std::string ep_guard(const Params&) {      // 无入参使用
     if (!body.empty() && body.back() == '}') { body.pop_back(); body += extra + "}"; }   // 在 JSON 末尾插入附加字段
     return body;                           // 返回(带附加字段的)守护状态
 }
+
+// ---- /btlist ----
+// AI 模拟回测报告列表: 取最近 n 场(id/时间/规模/一句话简介), 首页面板数据源
+std::string ep_btlist(const Params& q) {   // 可选参数 n(默认 3)
+    int n = atoi(P(q, "n", "3").c_str());  // 场数
+    if (n < 1 || n > 20) n = 3;            // 非法兜底
+    RowSet rs = db_q("SELECT id,run_ts,period_start,period_end,n_traders,n_contracts,n_trades,brief "
+                     "FROM bt_reports ORDER BY run_ts DESC LIMIT " + std::to_string(n));   // 最近 n 场
+    if (!rs.ok) return "{\"ok\":false,\"error\":\"bt_reports 查询失败\"}";   // 查询失败
+    std::string out = "{\"ok\":true,\"list\":[";   // 拼响应
+    bool first = true;                     // 首元素逗号控制
+    for (auto& r : rs.rows) {              // 逐场输出
+        if (!first) out += ",";            // 第二场起补逗号
+        first = false;
+        out += "{\"id\":" + r[0] + ",\"ts\":" + r[1] + ",\"ps\":" + r[2] + ",\"pe\":" + r[3] +
+               ",\"traders\":" + r[4] + ",\"contracts\":" + r[5] + ",\"trades\":" + r[6] +
+               ",\"brief\":\"" + jesc(r[7]) + "\"}";   // 简介(转义防注入)
+    }
+    return out + "]}";                     // 收尾
+}
+
+// ---- /btreport ----
+// 单场完整报告: ?id=场次ID → summary_json(全员) + top10_json(前十详细含评语/感言/明细)
+std::string ep_btreport(const Params& q) { // 参数 id 必填
+    std::string id = P(q, "id", "0");      // 取场次 ID
+    if (id.empty() || id.find_first_not_of("0123456789") != std::string::npos)   // 只允许纯数字(防注入)
+        return "{\"ok\":false,\"error\":\"id 非法\"}";
+    RowSet rs = db_q("SELECT run_ts,period_start,period_end,n_traders,n_contracts,n_trades,brief,summary_json,top10_json "
+                     "FROM bt_reports WHERE id=" + id);   // 取整场报告
+    if (!rs.ok || rs.rows.empty()) return "{\"ok\":false,\"error\":\"报告不存在\"}";   // 不存在
+    auto& r = rs.rows[0];                  // 单行
+    return "{\"ok\":true,\"id\":" + id + ",\"ts\":" + r[0] + ",\"ps\":" + r[1] + ",\"pe\":" + r[2] +
+           ",\"traders\":" + r[3] + ",\"contracts\":" + r[4] + ",\"trades\":" + r[5] +
+           ",\"brief\":\"" + jesc(r[6]) + "\",\"summary\":" + r[7] + ",\"top10\":" + r[8] + "}";   // JSON 直拼(库内已是合法 JSON)
+}

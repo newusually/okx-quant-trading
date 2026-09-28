@@ -88,3 +88,19 @@ CREATE TABLE IF NOT EXISTS kline_ETH-USDT-SWAP_5m (
   c  DECIMAL(20,8) NOT NULL,               -- 收盘价
   vol DECIMAL(28,8) NOT NULL               -- 成交量
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- bt_reports — AI 模拟交易员回测报告表 (bt_timer.exe 每小时写一场, 保留7天)
+-- 结构: 场次ID / 运行时刻 / 回测窗口 / 规模统计 / 一句话简介 / 全员汇总JSON / 前十详细JSON
+CREATE TABLE IF NOT EXISTS bt_reports (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '报告场次ID',
+  run_ts BIGINT NOT NULL COMMENT '运行时刻(毫秒)',
+  period_start BIGINT NOT NULL DEFAULT 0 COMMENT '回测窗口起(毫秒)',
+  period_end BIGINT NOT NULL DEFAULT 0 COMMENT '回测窗口止(毫秒)',
+  n_traders INT NOT NULL DEFAULT 0 COMMENT '模拟交易员数',
+  n_contracts INT NOT NULL DEFAULT 0 COMMENT '参与合约数',
+  n_trades INT NOT NULL DEFAULT 0 COMMENT '总成交笔数',
+  brief VARCHAR(255) NOT NULL DEFAULT '' COMMENT '一句话简介(首页列表用)',
+  summary_json LONGTEXT COMMENT '全员100行汇总JSON',
+  top10_json LONGTEXT COMMENT '前十详细JSON(含曲线/明细/评语/感言)',
+  KEY idx_run (run_ts)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI模拟交易员回测报告(每小时一场)';

@@ -134,6 +134,7 @@
         // 状态
         clock: U.clock(), busy: false, kloading: false, kerr: "",   // 时钟字符串/手动刷新中/K线加载中/K线错误文案
         followOff: false, lagMin: 0, hover: null,   // 是否已暂停跟随最新/数据滞后分钟数/悬停OHLC浮窗数据
+        btList: [],                              // AI模拟回测报告列表(最近3场, 60s轮询 /btlist)
       };
     },
 
@@ -586,6 +587,21 @@
       },
       pollTrades: function () { if (this.auto && document.visibilityState === "visible") this.loadTrades(); },   // 15s 流水轮询(可见且自动才刷)
       pollGuard: function () { if (this.auto && document.visibilityState === "visible") this.loadGuard(); },   // 10s 守护轮询
+      /* AI模拟回测报告: 60s 轮询列表 + 点击打开详报页 */
+      pollBt: function () {                      // 60s 报告列表轮询(报告每小时才一场, 60s 足够)
+        var self = this;                         // 保存 this
+        A.get("/btlist", null, 8000).then(function (j) {   // 拉最近 3 场简介
+          if (j && j.ok) self.btList = j.list || [];       // 成功 → 更新列表(驱动首页面板)
+        }, function () { });                     // 失败静默(下轮重试)
+      },
+      openBt: function (id) {                    // 点击报告行 → 新标签打开详报页
+        window.open("/v2/bt_report.html?id=" + id, "_blank");   // 静态详报页自己再拉 /btreport?id=
+      },
+      btTime: function (ms) {                    // 报告时刻格式化: MM-DD HH:mm
+        if (!ms) return "--";                    // 空值兜底
+        var d = new Date(ms), p = function (x) { return (x < 10 ? "0" : "") + x; };   // 补零助手
+        return p(d.getMonth() + 1) + "-" + p(d.getDate()) + " " + p(d.getHours()) + ":" + p(d.getMinutes());   // 月-日 时:分
+      },
       pollKline: function () {                   // 20s 全量K线轮询
         if (!this.auto || document.visibilityState === "hidden") return;   // 暂停/隐藏 → 跳过
         if (this.ctrl && !this.ctrl.isAtLatest()) { this.followOff = true; return; }   // 用户在看历史 → 不打扰(只标记跟随暂停)
@@ -645,6 +661,8 @@
       this._t7 = setInterval(function () { self.pollTick(); }, 1500);   // 1.5s 实时价定时器
       // K线尾部: 3s 只拉最近10根 → 图面实时跟到最新一根(含进行中)
       this._t8 = setInterval(function () { self.pollKTail(); }, 3000);   // 3s 尾部轮询定时器
+      this._t9 = setInterval(function () { self.pollBt(); }, 60000);   // 60s AI模拟回测报告列表轮询
+      this.pollBt();                            // 挂载即拉一次报告列表(面板立即可见)
 
       // 点击空白关闭下拉
       document.addEventListener("click", function (e) {   // 全局点击监听
