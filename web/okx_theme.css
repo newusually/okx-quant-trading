@@ -1,0 +1,5 @@
+/* okx_theme.css — 特殊样式: 魔法棒光标 + 星星粒子 (仅index.php加载, nqall/klineall不受影响) */
+#chart{cursor:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='60' height='60'><text y='48' font-size='48'>🪄</text></svg>") 8 48, crosshair}  /* 魔法棒放大一倍 */
+#chart canvas{cursor:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='60' height='60'><text y='48' font-size='48'>🪄</text></svg>") 8 48, crosshair}  /* 画布同步魔法棒 */
+.spark{position:absolute;pointer-events:none;font-size:36px;z-index:4;animation:spk 1.2s ease-out forwards}
+@keyframes spk{0%{transform:scale(.4);opacity:1}60%{transform:scale(1.35);opacity:.95}100%{transform:scale(.5);opacity:0}}

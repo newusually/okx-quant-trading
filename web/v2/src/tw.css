@@ -1,0 +1,139 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── 细滚动条 ───────────────────────────────── */
+@layer base {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #253247 transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 9px;
+    height: 9px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: #253247;
+    border-radius: 6px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: #33425c;
+    background-clip: content-box;
+  }
+  html,
+  body {
+    height: 100%;
+  }
+  body {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  [v-cloak] {
+    display: none;
+  }
+}
+
+@layer components {
+  /* 卡片 */
+  .card {
+    @apply rounded-xl border border-ink-600 bg-ink-800 shadow-card;
+  }
+  .card-h {
+    @apply flex items-center gap-2 border-b border-ink-600 px-3 py-2;
+  }
+  .card-t {
+    @apply flex items-center gap-1.5 text-[12px] font-semibold tracking-wide text-txt-2;
+  }
+  /* 徽标 */
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-3xs font-semibold leading-none;
+  }
+  /* 周期/图层按钮 */
+  .tab {
+    @apply cursor-pointer select-none rounded-md border border-transparent px-2 py-[3px] text-[11px] font-semibold text-txt-3 transition-colors hover:bg-ink-700 hover:text-txt-1;
+  }
+  .tab-on {
+    @apply border-gold/40 bg-gold/15 text-gold;
+  }
+  .chip {
+    @apply cursor-pointer select-none rounded-full border border-ink-600 bg-ink-750 px-2 py-[2px] text-3xs font-semibold text-txt-3 transition-colors hover:border-ink-500 hover:text-txt-2;
+  }
+  .chip-on {
+    @apply border-gold/50 bg-gold/15 text-gold;
+  }
+  /* 按钮 */
+  .btn {
+    @apply inline-flex items-center gap-1 rounded-md border border-ink-600 bg-ink-750 px-2 py-1 text-[11px] font-semibold text-txt-2 transition-colors hover:border-ink-500 hover:bg-ink-700 hover:text-txt-1;
+  }
+  .btn-on {
+    @apply border-gold/40 bg-gold/15 text-gold;
+  }
+  .ico-btn {
+    @apply grid h-6 w-6 place-items-center rounded-md border border-ink-600 bg-ink-750 text-[11px] text-txt-3 transition-colors hover:border-ink-500 hover:text-txt-1;
+  }
+  /* 滚动列表行 */
+  .row {
+    @apply flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-[11px] transition-colors;
+  }
+  .row:hover {
+    @apply bg-ink-700;
+  }
+  .row-on {
+    @apply bg-gold/10 ring-1 ring-inset ring-gold/35;
+  }
+  /* 表格 */
+  .tbl {
+    @apply w-full border-collapse text-[11px];
+  }
+  .tbl thead th {
+    @apply sticky top-0 z-10 border-b border-ink-600 bg-ink-800 px-2 py-1.5 text-left text-3xs font-semibold uppercase tracking-wider text-txt-4;
+  }
+  .tbl tbody td {
+    @apply border-b border-ink-600/50 px-2 py-[5px] whitespace-nowrap text-txt-2;
+  }
+  .tbl tbody tr:hover td {
+    @apply bg-ink-700/60;
+  }
+  /* 数字 */
+  .num {
+    @apply font-mono tabular-nums;
+  }
+  /* 绘图工具按钮 */
+  .tool {
+    @apply grid h-6 w-7 cursor-pointer place-items-center rounded-md border border-transparent text-[12px] leading-none text-txt-3 transition-colors hover:bg-ink-700 hover:text-txt-1;
+  }
+  .tool-on {
+    @apply border-gold/50 bg-gold/15 text-gold;
+  }
+  .lbl {
+    @apply select-none text-3xs font-semibold uppercase tracking-wider text-txt-4;
+  }
+  /* 设置面板 */
+  .setrow {
+    @apply flex items-center justify-between gap-2 py-[5px];
+  }
+  .setrow > span.k {
+    @apply text-[11px] text-txt-3;
+  }
+  .inp {
+    @apply w-[112px] rounded-md border border-ink-600 bg-ink-750 px-2 py-1 text-[11px] text-txt-2 outline-none focus:border-gold/50;
+  }
+  .sel {
+    @apply rounded-md border border-ink-600 bg-ink-750 px-2 py-1 text-[11px] text-txt-2 outline-none focus:border-gold/50;
+  }
+  .setgrp {
+    @apply mb-3 rounded-lg border border-ink-600/60 bg-ink-750/40 p-2.5;
+  }
+  .setgrp > h4 {
+    @apply mb-1.5 text-3xs font-semibold uppercase tracking-wider text-txt-4;
+  }
+  /* 骨架 */
+  .skel {
+    @apply animate-pulse2 rounded bg-ink-600;
+  }
+}

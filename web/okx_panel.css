@@ -1,0 +1,111 @@
+/* okx_panel.css — 原版OKX量化面板v3全部样式(okx_panel_backup_20260927.php提取) + 新K线组件所需样式 */
+:root{--red:#e03131;--green:#0ca678;--blue:#2f6fed;--bg:#f4f6fa;--card:#fff;--line:#e0e5ef;--txt:#1f2329}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);font:15px/1.5 "LiSu","隶书","KaiTi","STKaiti",serif;color:var(--txt)}
+.btn{background:linear-gradient(180deg,#5b93ff 0%,#3b78f0 50%,#2f6fed 100%);color:#fff;border:1px solid #2557c8;
+  border-radius:6px;padding:6px 16px;cursor:pointer;font-size:13px;font-weight:bold;box-shadow:0 2px 4px rgba(47,111,237,.25)}
+.btn:hover{background:linear-gradient(180deg,#78a6ff,#5588f5 50%,#4479f2)}
+.btn:active{background:linear-gradient(180deg,#1d47a8,#2a56c0);border-color:#16347c;transform:translateY(1px);box-shadow:none}
+.btn.ghost{background:#fff;color:var(--blue);border:1px solid #cfd6e4;box-shadow:none}
+.btn.ghost:hover{border-color:var(--blue)}
+.btn.ghost:active{background:#dce7ff;color:#16347c}
+.top{background:linear-gradient(180deg,#fff,#f0f1f5);border-bottom:1px solid var(--line);padding:10px 16px;
+  display:flex;gap:12px;align-items:center;flex-wrap:wrap;box-shadow:0 1px 4px rgba(0,0,0,.05)}
+.top b{font-size:20px;font-weight:bold;letter-spacing:1px;
+  background:linear-gradient(180deg,#ffe9a8,#f6c445 45%,#c98a1b 55%,#f2b52f);-webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 1px 1px rgba(90,60,0,.55)) drop-shadow(0 -1px 0 rgba(255,255,255,.35))}
+select,.inp{border:1px solid #cfd6e4;border-radius:6px;padding:5px 10px;background:#fff;font-size:13px;outline:none}
+#symbol{width:auto;flex:0 0 auto;min-width:0}
+select:hover,.inp:hover{border-color:var(--blue)}
+.inp:focus{border-color:var(--blue)}
+#status{font-size:12px;color:#8a93a6}
+/* 2026-09-28c: K线图全宽拉长(左到右), 监测窗口改右下角悬浮 */
+.wrap{padding:12px}
+.wrap>div{display:flex;flex-direction:column;gap:12px}
+.c-chart{grid-column:1 / -1}
+@media (max-width:1100px){.wrap{grid-template-columns:1fr}}
+.c-chart{background:linear-gradient(160deg,#eef4ff 0%,#f6f0ff 55%,#fdf2ff 100%)}
+.c-flow {background:linear-gradient(160deg,#edfbf4 0%,#f0f9ff 100%)}
+.c-grid {background:linear-gradient(160deg,#fff7e8 0%,#ffefe9 100%)}
+.c-chk  {background:linear-gradient(160deg,#f2f0ff 0%,#eef8ff 100%)}
+.card{border:1px solid rgba(90,110,160,.18);border-radius:10px;padding:12px;box-shadow:0 2px 10px rgba(60,80,140,.08)}
+.card h3{font-size:20px;font-weight:bold;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid rgba(120,140,180,.25);text-align:center;
+  -webkit-background-clip:text;background-clip:text;color:transparent;transition:filter .2s;cursor:default;
+  filter:drop-shadow(0 1px 1px rgba(0,0,0,.28)) drop-shadow(0 -1px 0 rgba(255,255,255,.4))}
+.card h3:hover{filter:drop-shadow(0 1px 2px rgba(0,0,0,.45)) brightness(1.18)}
+.hc-chart{background-image:linear-gradient(180deg,#b48cff,#7b3ff2 45%,#4c1fa8 55%,#8d55f5)}
+.hc-flow {background-image:linear-gradient(180deg,#8ff0c4,#12b886 45%,#087f5b 55%,#2ecf9a)}
+.hc-grid {background-image:linear-gradient(180deg,#ffd08a,#f76707 45%,#c44e00 55%,#ff922b)}
+.hc-chk  {background-image:linear-gradient(180deg,#9ec2ff,#1d6fe0 45%,#0d3f8f 55%,#4d97f2)}
+#slineTop{flex:0 1 auto;white-space:nowrap;font-size:15px;
+  background:linear-gradient(180deg,#fff1f3,#ffe3e8);border:1px solid #f1b8c1;border-radius:8px;padding:5px 12px;color:#8c1d2f}
+#aiMarq{flex:1 1 260px;min-width:220px;overflow:hidden;white-space:nowrap;border:1px solid #b8e6d9;border-radius:8px;
+  background:linear-gradient(180deg,#eafcf5,#d3f4e8);padding:5px 0;color:#0b5c40;font-size:15px;position:relative}
+#aiMarq .mq{display:inline-block;padding-left:100%;animation:mqmove 54s linear infinite}
+#aiMarq:hover .mq{animation-play-state:paused;cursor:pointer}
+@keyframes mqmove{0%{transform:translateX(0)}100%{transform:translateX(-100%)}}
+#aiDetailBtn{background:linear-gradient(180deg,#74e0b9,#1fa876);color:#fff;border:1px solid #0e7d55;font-weight:bold}
+#aiDetailBtn:hover{filter:brightness(1.12)}
+#fltMenu{position:fixed;z-index:99;background:#232a36;color:#f3e9d6;border:1px solid #4a5568;border-radius:8px;
+  box-shadow:0 4px 14px rgba(0,0,0,.4);padding:6px 10px;max-height:280px;overflow:auto;display:none;min-width:190px;
+  font-family:"LiSu","隶书","KaiTi",serif;font-size:19px}
+#fltMenu label{display:block;padding:2px 2px;white-space:nowrap;cursor:pointer}
+#fltMenu .fmA{border-bottom:1px solid #4a5568;margin-bottom:4px;padding-bottom:4px;font-weight:bold}
+.fbtn{display:inline-block;margin-left:5px;padding:0 5px;border:1px solid #b9c4d6;border-radius:3px;background:#fff;
+  font-size:12px;font-family:"Segoe UI",sans-serif;cursor:pointer;user-select:none;line-height:1.4}
+.fbtn:hover{background:#e8f0ff;border-color:var(--blue)}
+.legend{font-size:12px;color:#8a93a6;margin-top:6px}
+.tw{max-height:min(300px,30vh);overflow:auto;border:1px solid var(--line);border-radius:6px}
+#gridTW{max-height:min(500px,52vh);min-height:0}
+table{width:100%;border-collapse:collapse;font-size:15px;table-layout:auto}
+#flowT thead th{background:linear-gradient(180deg,#d8f5e6,#b2e6cd);border-bottom:2px solid #0ca678;color:#0b5c40}
+#flowT th:nth-child(5),#flowT td:nth-child(5){width:80px}
+#gridT thead th{background:linear-gradient(180deg,#ffe8c2,#ffd39e);border-bottom:2px solid #e8590c;color:#8a3a00}
+thead th{position:sticky;top:0;z-index:2;padding:8px 6px;text-align:center;font-size:20px;font-weight:bold;cursor:pointer;white-space:nowrap;user-select:none;transition:filter .15s}
+thead th:hover{filter:brightness(1.08)}
+#flowT tbody tr:nth-child(even){background:#eefaf3}
+#gridT tbody tr:nth-child(even){background:#fff6ea}
+tbody td{padding:9px 6px;border-bottom:1px solid #eef1f6;white-space:nowrap;text-align:center}
+tbody tr:hover{background:#dceaff}
+tbody tr.clickable{cursor:pointer}
+.sline{font-size:13px;background:linear-gradient(180deg,#f7f9fc,#eef2f9);border:1px solid var(--line);
+  border-radius:8px;padding:8px 12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:10px}
+.frow{display:flex;gap:8px;margin-bottom:8px}
+.frow .inp{flex:1;min-width:0}
+.aiItem{border-bottom:1px solid #eef1f6;padding:6px 4px;cursor:pointer}
+.aiItem:hover{background:#f2f7ff}
+.aiItem .t{color:#1971c2;font-weight:bold;margin-right:8px}
+.aiItem .k{font-weight:bold;margin-right:8px}
+#mask{display:none;position:fixed;inset:0;background:rgba(20,30,50,.45);z-index:50;align-items:center;justify-content:center}
+#mask .box{background:#fff;border-radius:12px;width:min(920px,94vw);max-height:88vh;display:flex;flex-direction:column;overflow:hidden}
+#mask .box header{padding:12px 16px;border-bottom:2px solid var(--blue);font-weight:bold;color:#33415c;display:flex;justify-content:space-between}
+#mask pre{margin:0;padding:14px 16px;overflow:auto;font:12px/1.6 Consolas,"Microsoft YaHei",monospace;white-space:pre-wrap}
+/* ===== 新K线组件(nqall同款)所需样式 ===== */
+#chart{width:100%;height:clamp(460px,64vh,780px);position:relative;background:linear-gradient(180deg,#fdfeff 0%,#f6f8fb 100%);border:1px solid #e3e8f0;border-radius:10px;box-shadow:inset 0 1px 4px rgba(20,40,80,.05),0 2px 10px rgba(20,40,80,.04)}
+/* 底部居中悬浮监测窗 (2026-09-28e: 默认中下方, 标题栏可拖动) */
+.c-grid.float-monitor{position:fixed;left:50%;bottom:12px;transform:translateX(-50%);width:min(640px,64vw);z-index:60;max-height:76vh;display:flex;flex-direction:column;box-shadow:0 8px 28px rgba(40,60,100,.30)}
+.c-grid.float-monitor h3{font-size:14px;text-align:left;padding:6px 10px;display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:move;user-select:none;touch-action:none}
+.c-grid.float-monitor .gw-body{overflow:auto;min-height:0;flex:1;display:flex;flex-direction:column}
+.c-grid.float-monitor .gw-body .tw{flex:1;min-height:0;max-height:none}
+.c-grid.float-monitor.min .gw-body{display:none}
+.c-grid.float-monitor .gmin{flex:0 0 auto;width:26px;height:22px;line-height:20px;padding:0;font-size:13px;border-radius:6px}
+/* 悬浮窗内: 提示文字换行完整显示, 表格至少4行可见且字号清晰 */
+.c-grid.float-monitor .sline{white-space:normal;overflow:visible;text-overflow:clip;font-size:12px;line-height:1.6}
+.c-grid.float-monitor #gridT thead th{font-size:14px;padding:7px 6px}
+.c-grid.float-monitor #gridT tbody td{font-size:13px;padding:7px 6px;white-space:normal}
+.c-grid.float-monitor #gridTW{min-height:250px}
+#chart canvas{width:100%;height:100%;display:block}
+#tfs{display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap}
+.tf{cursor:pointer;border:1px solid #c9d4e4;border-radius:6px;padding:2px 12px;font-size:13px;color:#33465e;background:#fff;user-select:none}
+.tf.on{background:#2b6cb0;color:#fff;border-color:#2b6cb0;font-weight:700}
+#tip{position:absolute;display:none;pointer-events:none;background:rgba(255,255,255,.97);border:1px solid #c9d4e4;border-radius:8px;
+padding:8px 11px;font-size:12px;color:#1d2733;font-family:"Microsoft YaHei",sans-serif;box-shadow:0 4px 14px rgba(20,40,80,.18);z-index:9;line-height:1.75;white-space:nowrap}
+#tip .up{color:#d5382f}#tip .dn{color:#0a8f4e}
+#load{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:14px;color:#67788f;background:#fff;z-index:20}
+#fetch{position:absolute;right:80px;top:12px;z-index:8;font-size:12px;color:#2b6cb0;background:rgba(255,255,255,.92);
+border:1px solid #c9d4e4;border-radius:8px;padding:3px 10px;display:none;box-shadow:0 2px 8px rgba(20,40,80,.12);font-family:"Microsoft YaHei",sans-serif}
+#live{position:absolute;left:10px;top:8px;z-index:8;font-size:14px;font-weight:600;color:#1d2733;font-family:"Microsoft YaHei",sans-serif;
+background:rgba(255,255,255,.9);border:1px solid #e3e8f0;border-radius:8px;padding:3px 10px;pointer-events:none;box-shadow:0 1px 6px rgba(20,40,80,.08)}
+#live .up{color:#d5382f}#live .dn{color:#0a8f4e}
+#live small{font-size:10px;font-weight:400;color:#8795a8;margin-left:6px}
+.up{color:var(--red)}.down{color:var(--green)}.muted{color:#98a0ab}

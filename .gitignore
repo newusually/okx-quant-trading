@@ -1,0 +1,54 @@
+# 构建产物 / 可执行文件
+*.exe
+*.dll
+*.o
+*.obj
+*.a
+*.lib
+bin/
+obj/
+debug/
+release/
+x64/
+x86/
+
+# 备份与临时
+*.bak
+*.bak_*
+*~
+*.tmp
+*.orig
+*.log
+_bak/
+_archived*/
+*backup*/
+
+# 密钥与凭证（绝不入库）
+api.json
+subAccount_api_key/
+*.key
+*.pem
+.env
+
+# 数据与缓存
+cache/
+datas/
+runtime/
+*.csv
+*.xlsx
+*.bin
+
+# 第三方库
+vendor/
+
+# Python / Node
+__pycache__/
+*.pyc
+node_modules/
+
+# IDE
+.vs/
+.idea/
+*.suo
+*.user
+*.pyproj

@@ -1,0 +1,29 @@
+/* ov_overlay.css — 热插拔覆盖层样式 (删除本文件+挂载行即彻底移除) */
+#ovLegend {
+  position: absolute;
+  left: 12px;
+  bottom: 36px;
+  z-index: 8;
+  font-size: 12px;
+  color: #b01212;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid #f3c1c1;
+  border-radius: 8px;
+  padding: 4px 10px;
+  pointer-events: auto;
+  box-shadow: 0 2px 8px rgba(120, 20, 20, 0.10);
+}
+#ovLegend .ovBtn {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 8px;
+  border: 1px solid #e8a0a0;
+  border-radius: 6px;
+  background: #fff;
+  color: #b01212;
+  font-weight: bold;
+  cursor: pointer;
+  user-select: none;
+}
+#ovLegend .ovBtn:hover { background: #fdeeee; }
+#ovCnt { margin-left: 8px; color: #67788f; }
