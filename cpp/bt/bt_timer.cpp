@@ -187,13 +187,13 @@ static void llm_personas(std::vector<std::string>& names, std::vector<int>& temp
     logline("LLM 生成人格 " + std::to_string(names.size()) + "/100");
 }
 
-// ---------------- LLM: 给前十生成评语+获奖感言 ----------------
+// ---------------- LLM: 给前十生成评语(按名字对齐解析, 不再产感言) ----------------
 static void llm_speeches(const std::vector<Spec>& sp, const std::vector<int>& topIdx,
-                         const std::vector<Res>& res, std::vector<std::string>& cmt, std::vector<std::string>& spc) {
-    cmt.assign(topIdx.size(), ""); spc.assign(topIdx.size(), "");   // 输出容器(空=走模板兜底)
+                         const std::vector<Res>& res, std::vector<std::string>& cmt) {
+    cmt.assign(topIdx.size(), "");                        // 输出容器(空=走模板兜底)
     const char* TMPF = "E:\\datas\\tmp\\bt_prompt2.txt";
     FILE* f = fopen(TMPF, "wb"); if (!f) return;
-    fprintf(f, "你是加密货币模拟交易大赛评委。下面是前十名成绩, 给每人写一行: 名字|评语(20字内)|获奖感言(50字内)\n");
+    fprintf(f, "你是加密货币模拟交易大赛评委。下面是前十名成绩, 给每人写一行, 格式严格为: 名字|评语(20字内)\n");
     for (size_t i = 0; i < topIdx.size(); i++) {    // 成绩单(供评委参考)
         const Spec& s = sp[topIdx[i]]; const Res& r = res[topIdx[i]];
         fprintf(f, "%zu.%s %s%s %.1f%% 胜率%.0f%%\n", i+1, s.name.c_str(), s.archN.c_str(),
@@ -207,16 +207,90 @@ static void llm_speeches(const std::vector<Spec>& sp, const std::vector<int>& to
     std::string out;
     if (!run_capture(cmd, 240000, out)) { logline("LLM 评语生成失败 → 模板兜底"); return; }
     size_t pos = 0; int got = 0;
-    while (pos < out.size() && got < (int)topIdx.size()) {   // 逐行解析三段式
+    while (pos < out.size() && got < (int)topIdx.size()) {   // 逐行解析: 名字|评语 (按名字对齐, 杜绝错位)
         size_t e = out.find('\n', pos); if (e == std::string::npos) e = out.size();
         std::string line = out.substr(pos, e - pos); pos = e + 1;
         size_t b1 = line.find('|'); if (b1 == std::string::npos) continue;
-        size_t b2 = line.find('|', b1 + 1); if (b2 == std::string::npos) continue;
-        cmt[got] = clean_name(line.substr(b1+1, b2-b1-1));   // 评语(复用清洗, 截断超长)
-        spc[got] = clean_name(line.substr(b2+1));            // 感言
-        got++;
+        std::string nm = clean_name(line.substr(0, b1));
+        std::string cm = clean_name(line.substr(b1 + 1));
+        if (nm.empty() || cm.empty()) continue;
+        for (size_t k = 0; k < topIdx.size(); k++)       // 名字对上谁就评谁
+            if (cmt[k].empty() && sp[topIdx[k]].name.find(nm) != std::string::npos) { cmt[k] = cm; got++; break; }
     }
     logline("LLM 评语 " + std::to_string(got) + "/10");
+}
+
+// ---------------- 大感言: 数据驱动生成 ≥500字/人(保证必存在, 六段式多分析多感悟) ----------------
+static std::string rep_str(std::string t, const std::vector<std::pair<std::string, std::string>>& m) {
+    for (auto& p : m) { size_t pos; while ((pos = t.find(p.first)) != std::string::npos) t.replace(pos, p.first.size(), p.second); }
+    return t;
+}
+static std::string big_speech(const Spec& s, const Res& r, int rank) {
+    auto pct = [](double x) { char b[24]; snprintf(b, sizeof(b), "%.1f", x); return std::string(b); };
+    double ret = (r.eq / 1000.0 - 1) * 100.0;
+    double winr = r.ntr ? 100.0 * r.win / r.ntr : 0;
+    std::vector<std::pair<std::string, std::string>> M = {
+        {"%RANK%", std::to_string(rank)}, {"%NAME%", s.name}, {"%ARCH%", s.archN},
+        {"%TEMPER%", s.temper}, {"%DIR%", s.dir == 1 ? "做多" : s.dir == -1 ? "做空" : "多空自适应"},
+        {"%LEV%", std::to_string(s.lev)}, {"%SIZE%", pct(s.size * 100)},
+        {"%TP%", pct(s.tp * 100)}, {"%SLP%", s.sl > 0 ? ("止损 " + pct(s.sl * 100) + "%") : "从不设止损"},
+        {"%ADD%", s.pyramid ? "顺势金字塔加仓——赚了才加, 越涨越谨慎, 让利润自己奔跑" : "逆势跌档补仓——越跌越买, 用均价摊薄成本, 等风再把船抬起来"},
+        {"%RET%", (ret >= 0 ? "+" : "") + pct(ret)}, {"%NTR%", std::to_string(r.ntr)},
+        {"%WIN%", pct(winr)}, {"%DD%", pct(r.dd * 100)}, {"%FEE%", pct(r.fee)},
+        {"%LIQ%", std::to_string(r.liqs)}, {"%FIN%", pct(r.eq / 1000.0)} };
+    auto pick = [&](const std::vector<std::string>& pool) {   // 每次抽一句(每场不同人不同句)
+        return rep_str(pool[g_rng() % pool.size()], M);
+    };
+    // ① 开场·获奖心情
+    std::string sp1 = pick({
+        "大家好, 我是%NAME%。拿到本场第%RANK%名, 期末权益%FIN%U、收益%RET%%%, 我第一时间想到的不是庆祝, 而是复盘——市场永远是对的, 赢的只是恰好站对了它那一边。",
+        "感谢评委。我以第%RANK%名收官, %RET%%%的成绩放在整场%NTR%笔交易的背景里看, 每一笔都有它的必然: 不是我聪明, 是我的%ARCH%体系在这段行情里找到了自己的生态位。",
+        "站上领奖台, 我先给被市场教育过的自己鞠一躬。%RET%%%、期末%FIN%U, 这个数字背后是%NTR%次决策, 每次决策背后是%LEV%倍杠杆下对生死的敬畏。" });
+    // ② 方法·入场逻辑
+    std::string sp2 = pick({
+        "我的方法核心是「%ARCH%」。%DIR%只做一件事: 等指标自己开口说话, 信号不到绝不动手, 信号来了绝不犹豫。很多人亏钱不是因为不懂, 而是因为太懂——懂到忍不住去预测, 而我只跟随。",
+        "「%ARCH%」是我的独门武器。%DIR%的每一笔入场都要过三道关: 形态关、动能关、情绪关。三关全过才扣扳机, 缺一就空仓看戏。宁可错过一百次, 不可错进一次。",
+        "我信仰「%ARCH%」。市场是概率的海洋, 我不追求每次都对, 只追求对的时候赚足、错的时候亏小。%DIR%的入场上, 我把确定性排第一、赔率排第二、频率排最后。" });
+    // ③ 仓位·风控哲学
+    std::string sp3 = pick({
+        "仓位上我用%SIZE%%仓起步, %LEV%倍杠杆, %ADD%。%SLP%。风控不是止损线上的一个数字, 而是开仓前就想好的退路——先算输, 再算赢。",
+        "我的仓位哲学: 活着比赚钱重要一万倍。%SIZE%%底仓、%LEV%倍杠杆, %ADD%。%SLP%。杠杆是放大器, 放大的可以是利润, 更可以是贪婪, 我用仓位把它摁住。",
+        "风控是我这场的生命线: %SIZE%%仓、%LEV%倍杠杆、%SLP%。%ADD%。市场专治各种不服, 我唯一不服的是『重仓一把梭』——那是把命运交给抛硬币。" });
+    // ④ 数据·自我剖析(按数据定制)
+    std::string sp4 = winr >= 55 ?
+        pick({ "%WIN%%的胜率、%NTR%笔交易, 数据证明我的入场过滤是有效的。但我不敢飘——胜率高也意味着我可能错过了一些该做的行情, 下一步要研究的是『少而精』和『多而稳』之间的平衡。",
+               "复盘数据: %NTR%笔、胜率%WIN%%、最大回撤%DD%%、手续费%FEE%U、强平%LIQ%次。这个成绩单我给自己打八十分——扣掉的二十分在回撤管理, %DD%%的回撤说明浮盈时我还是不够果断落袋。" }) :
+        pick({ "胜率只有%WIN%%, %NTR%笔里一大半是小的试探单。但我活着, 还赚了%RET%%——靠的是盈亏比。截断亏损、让利润奔跑这句话, 我用整场做了一次注脚。",
+               "数据不会说谎: %NTR%笔、胜率%WIN%%、回撤%DD%%、费用%FEE%U。低胜率高盈亏比是我的画像, 每一次小亏都是在为那一笔大赚交学费, 学费交得起, 就不算亏。" });
+    if (r.liqs == 0) sp4 += "全场零强平, 这是我最自豪的数字——可以慢, 但不能死。";
+    else sp4 += "强平%LIQ%次是我的耻辱柱, 杠杆的毒我尝过了, 下场一定减。";
+    // ⑤ 心态·感悟
+    std::string sp5 = pick({
+        "我是「%TEMPER%」的性格, 这场我学会了和它共处: 亏损时不报复性开仓, 盈利时不觉得自己是神。情绪是交易者最大的对手盘, K线只是它作案的现场。",
+        "「%TEMPER%」的我这一路跌跌撞撞。最大的感悟是: 交易的反义词不是不交易, 是乱交易。空仓也是一种仓位, 等待也是一种进攻。",
+        "性格「%TEMPER%」是我的双刃剑。这场我终于明白: 体系会因为性格而变形, 但纪律可以把变形拉回来。每天收盘问自己一句——今天的操作, 是计划内的, 还是情绪的?" });
+    // ⑥ 敬畏·寄语
+    std::string sp6 = pick({
+        "最后想对市场说声谢谢, 也对后辈说一句: 这个市场里, 慢就是快, 少就是多。复利的敌人不是波动, 是急于求成。愿你我都能在下一场行情里, 既赚到钱, 也赚到认知。",
+        "市场每天都有新故事, 但老规矩从不变: 趋势是朋友、杠杆是猛兽、本金是命根。我的%RET%%%只是这段行情的馈赠, 把它当成实力是危险的开始。敬畏市场, 才能长期留在牌桌上。",
+        "给还在亏钱的朋友一句忠告: 先用小仓位把『不亏大钱』练成肌肉记忆, 再谈赚钱。我这场%FIN%U的权益曲线不是天赋, 是把每一次『差点上头』摁回去的结果。下个赛场, 我们再见。" });
+    // 保底段(若六段合计仍偏短, 再补一段通用感悟, 确保 ≥500 字)
+    std::string sp = sp1 + "\n" + sp2 + "\n" + sp3 + "\n" + sp4 + "\n" + sp5 + "\n" + sp6;
+    if (sp.size() < 500 * 3) sp += "\n补充感悟: 回头看这%NTR%笔交易, 真正决定胜负的往往不是入场那一瞬间的聪明, 而是持仓过程中无数个想平仓又拿住的夜晚、想加仓又忍住的清晨。%ARCH%给了我一双看市场的眼睛, 但让这双眼睛不被恐惧和贪婪蒙住的, 是纪律。市场永远会比你想的更极端, 也永远会比你想的更有耐心——你要做的, 就是比它更能等, 比它更能扛, 比它更敬畏。这一场结束了, 下一场, 依然是新的修行。";
+    return sp;
+}
+
+// ---------------- 一句优点总结(首页列表标题用, 按数据挑最亮眼处) ----------------
+static std::string merit(const Res& r) {
+    double ret = (r.eq / 1000.0 - 1) * 100.0;
+    double winr = r.ntr ? 100.0 * r.win / r.ntr : 0;
+    char b[48];
+    if (ret >= 100) return "吃足大趋势·复利滚雪球";
+    if (r.dd <= 8) { snprintf(b, sizeof(b), "回撤仅%.1f%%·稳如磐石", r.dd * 100); return b; }
+    if (winr >= 60) { snprintf(b, sizeof(b), "胜率%.0f%%·出手即中", winr); return b; }
+    if (r.liqs == 0 && r.ntr >= 20) return "全程零强平·风控满分";
+    if (r.ntr <= 60) return "少出手多命中·子弹金贵";
+    return "纪律在线·盈亏比合理";
 }
 
 // ---------------- 回填: 单合约单周期缺口(用 history-candles 可翻旧账) ----------------
@@ -764,24 +838,16 @@ static void write_report(const std::vector<Spec>& sp, std::vector<Res>& res, int
     }
     sj += "]}";
     // ---- top10_json: 前十详细(评语/感言/成交明细) ----
-    std::vector<std::string> cmt, spc;
+    std::vector<std::string> cmt;
     std::vector<int> topIdx(order.begin(), order.begin() + std::min<size_t>(10, order.size()));
-    llm_speeches(sp, topIdx, res, cmt, spc);
+    llm_speeches(sp, topIdx, res, cmt);
     static const char* CMT_TPL[8] = {"方法纪律在线，盈亏比合理","风格激进，靠趋势吃饭","出手太频，被手续费蚕食","亏后报复开仓是最大漏洞","节奏混乱，需要系统化","稳字当头，牺牲弹性换生存","赌性坚强，命运大起大落","纪律执行满分，值得实盘借鉴"};
     std::string tj = "{\"top\":[";
     for (size_t k = 0; k < topIdx.size(); k++) {
         int i = topIdx[k]; const Spec& s = sp[i]; const Res& r = res[i];
         if (k) tj += ",";
         std::string cm = cmt[k].empty() ? std::string(CMT_TPL[s.arch % 8]) : cmt[k];     // 评语(LLM 兜底模板)
-        char slb[24]; snprintf(slb, sizeof(slb), "%.1f%%", s.sl * 100);   // 止损百分数串
-        std::string sp2 = spc[k].empty() ?                                               // 感言(LLM 兜底模板)
-            ("这场我靠「" + s.archN + (s.dir >= 0 ? "·顺多" : "·顺空") + "」打出 " +
-             std::to_string((int)((r.eq/1000.0-1)*100)) + "%。我的独门公式是「" + s.archN +
-             "」——市场给了我 " + std::to_string(r.ntr) + " 次机会，我抓住了 " + std::to_string(r.win) +
-             " 次。风控是我自己设计的：加仓" + std::string(s.pyramid ? "只顺势金字塔" : "只在跌够时") +
-             (s.sl > 0 ? "，止损 " + std::string(slb) : "，我从不设止损") +
-             "，杠杆 " + std::to_string(s.lev) + "x，剩下的交给市场。")
-            : spc[k];
+        std::string sp2 = big_speech(s, r, (int)k + 1);                                  // 大感言(数据驱动 ≥500字, 必存在)
         tj += "{\"rk\":" + std::to_string(k+1) + ",\"nm\":\"" + jesc(s.name) + "\",\"ar\":\"" + jesc(s.archN) +
               "\",\"dr\":" + std::to_string(s.dir) + ",\"tp\":\"" + jesc(s.temper) +
               "\",\"sz\":" + jnum(s.size) + ",\"tpv\":" + jnum(s.tp) + ",\"slv\":" + jnum(s.sl) +
@@ -802,12 +868,15 @@ static void write_report(const std::vector<Spec>& sp, std::vector<Res>& res, int
         tj += "]}";
     }
     tj += "]}";
-    // ---- 一句话简介 ----
+    // ---- 一句话简介(多王/空王各带一句优点总结) ----
+    std::string mL = bestL >= 0 ? merit(res[bestL]) : "";
+    std::string mS = bestS >= 0 ? merit(res[bestS]) : "";
     char brief[256];
-    snprintf(brief, sizeof(brief), "多王%s(%s) %+.1f%% · 空王%s %+.1f%% · %d人×%d币·%d笔",
+    snprintf(brief, sizeof(brief), "多王%s(%s) %+.1f%%·%s | 空王%s %+.1f%%·%s | %d人×%d币·%d笔",
              bestL >= 0 ? sp[bestL].name.c_str() : "-", bestL >= 0 ? sp[bestL].archN.c_str() : "-",
-             bestL >= 0 ? (res[bestL].eq/1000.0-1)*100 : 0,
+             bestL >= 0 ? (res[bestL].eq/1000.0-1)*100 : 0, mL.c_str(),
              bestS >= 0 ? sp[bestS].name.c_str() : "-", bestS >= 0 ? (res[bestS].eq/1000.0-1)*100 : 0,
+             mS.c_str(),
              (int)res.size(), nc, ntr);
     // ---- 入库 ----
     std::string sql = "INSERT INTO bt_reports (run_ts,period_start,period_end,n_traders,n_contracts,n_trades,brief,summary_json,top10_json) VALUES (" +
