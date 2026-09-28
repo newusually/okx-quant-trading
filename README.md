@@ -97,6 +97,14 @@ CREATE TABLE okx_cred (
 ```
 
 ⚠️ **安全说明**：本仓库所有源码均不含 API Key、Secret、Passphrase、数据库密码等敏感信息；C++ 运行时从数据库 `okx_cred` 表读取凭证。
+1️⃣ 一键安装批处理 setup.bat（已核实本机真实环境后编写）​
+自动检测并安装：XAMPP（Apache 2.4.58 + PHP 8.2.12 + MariaDB 10.4.32）→ MinGW-w64 g++ 13.1.0 → MySQL Connector C 6.1.11 → 配置 PHP FFI 扩展和 Apache 反向代理 → 导入 docs/schema.sql 建库建表（okx_cred / app_settings / trade_flow / position_detail / pnl_history / kline_signals，只建表头无任何数据）→ 编译全部 C++ 组件。用法：setup.bat（装+编）、install（只装）、build（只编）。
+配套上传 configs/：okx_cred.example.sql（凭证模板，真实 Key 填后导入、绝不入 git）、httpd-proxy.conf、php-ffi-snippet.ini、xampp_unattend.xml。
+2️⃣ 全库逐行中文注释（28323 行，18 个并行子代理完成）​
+
+C++ 20 个文件、PHP 83 个（含 66 个回测脚本）、JS/CSS/HTML 27 个——每个文件头部有块注释（职责/函数清单/算法说明），每行有效代码都有行内注释讲业务含义（金▲ KE 动能锚、六重闸门、OKX 翻页方向、K线列名 o/h/l/c/vol 等血泪坑全部写进注释）
+第三方库（lwc5.js / vue.global.prod.js / tw.css）不注释，README 已注明
+质量验证：多个代理用「剥离注释后与原版逐行 diff」确认代码零改动
 
 ## 免责声明
 
