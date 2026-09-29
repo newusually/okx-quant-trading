@@ -130,6 +130,7 @@ static void handle_req(const std::string& target, std::string& outBody, int& out
     else if (action == "guard")       outBody = ep_guard(q);   // 守护状态
     else if (action == "btlist")      outBody = ep_btlist(q);  // AI模拟回测报告列表(最近n场)
     else if (action == "btreport")    outBody = ep_btreport(q);   // 单场完整报告(?id=)
+    else if (action == "nqsim")       outBody = ep_nqsim(q);   // NQ 模拟交易(状态/手动下单)
     else { outBody = "{\"ok\":false,\"error\":\"unknown action: " + jesc(action) + "\"}"; outCode = 404; }   // 未知路由 → 404
 }
 

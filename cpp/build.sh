@@ -54,6 +54,12 @@ if [ "$TARGET" = "all" ] || [ "$TARGET" = "datahub" ]; then
   $GXX $FLAGS -o "bin/${OUT:-datahub.exe}" bin/obj/datahub_main.o bin/obj/datahub_fetch.o -Lbin/obj -lhub $LDFLAGS
 fi
 
+if [ "$TARGET" = "all" ] || [ "$TARGET" = "nqhub" ]; then
+  cc nq/nqhub.cpp         nqhub.o
+  echo "[link] bin/${OUT:-nqhub.exe}"
+  $GXX $FLAGS -o "bin/${OUT:-nqhub.exe}" bin/obj/nqhub.o -Lbin/obj -lhub $LDFLAGS
+fi
+
 if [ "$TARGET" = "all" ] || [ "$TARGET" = "tradehub" ]; then
   cc trade/trade_okx.cpp      trade_okx.o
   cc trade/trade_data.cpp     trade_data.o

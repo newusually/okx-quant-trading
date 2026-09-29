@@ -83,8 +83,9 @@ Target g_tg[] = {                                    // 全局监控目标表(�
 const int g_tgN = (int)(sizeof(g_tg) / sizeof(g_tg[0]));   // 目标个数(6), 供各处循环使用
 
 static const char* g_fixTasks[] = {                  // 配置自愈覆盖的计划任务清单
-    "finally_fill1m", "finally_apihub", "finally_tphub", "finally_guard", "finally_bttimer",
+    "finally_fill1m", "finally_apihub", "finally_tphub", "finally_guard", "finally_bttimer", "finally_nqhub",
     // finally_phpengine / finally_phpfill 已按"去PHP"指令停用, 不再纳入配置自愈   —— 原任务列表备注
+    // finally_nqhub = NQ 纳指数据守护+模拟引擎(0929 新增), 任务被误删时由本服务自动重建
 };
 static const int g_fixTaskN = (int)(sizeof(g_fixTasks) / sizeof(g_fixTasks[0]));   // 自愈任务个数(4)
 static const char* g_fixSvcs[] = { "Apache2.4", "MariaDB" };   // 配置自愈覆盖的 Windows 服务清单

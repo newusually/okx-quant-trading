@@ -148,6 +148,7 @@ std::string ep_health(const Params& q);           // 接口 /health: 健康检�
 std::string ep_guard(const Params& q);            // 接口 /guard: 风控守护状态
 std::string ep_btlist(const Params& q);           // 接口 /btlist: AI模拟回测报告列表(最近n场简介)
 std::string ep_btreport(const Params& q);         // 接口 /btreport: 单场完整报告(?id=场次ID)
+std::string ep_nqsim(const Params& q);            // 接口 /nqsim: NQ 模拟交易状态(op=state) / 手动下单(op=order&side=)
 
 // ---------------- 面板渲染 (api_pages) ----------------
 std::string render_panel(const Params& q);        // 渲染零JS主面板整页 HTML(服务端拼接, 浏览器直显)

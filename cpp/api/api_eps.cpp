@@ -742,3 +742,73 @@ std::string ep_btreport(const Params& q) { // 参数 id 必填
            ",\"traders\":" + r[3] + ",\"contracts\":" + r[4] + ",\"trades\":" + r[5] +
            ",\"brief\":\"" + jesc(r[6]) + "\",\"summary\":" + r[7] + ",\"top10\":" + r[8] + "}";   // JSON 直拼(库内已是合法 JSON)
 }
+
+// ---- /nqsim ----
+// NQ 纳指期货模拟交易接口(sigcore 退役后新增, 0929):
+//   op=state (默认) → 持仓/统计/流水/挂单 一次性返回(前端 3s 轮询)
+//   op=order&side=buy|add|sell|close → 写入 nq_sim_orders 排队, nqhub 下一轮((15s))按最新 1m 收盘成交
+// 唯一真源: nqhub.exe 写 nq_sim_pos/nq_sim_trades; 本接口只读+投单(铁律: PHP 只显示)
+std::string ep_nqsim(const Params& q) {
+    std::string op = P(q, "op", "state");        // 操作类型(默认查状态)
+    if (op == "order") {                         // —— 手动下单(排队) ——
+        std::string side = P(q, "side", "");     // 方向
+        if (side != "buy" && side != "add" && side != "sell" && side != "close")   // 白名单
+            return "{\"ok\":false,\"error\":\"side 非法\"}";
+        std::string note = jesc(P(q, "note", "手动"));   // 备注(转义)
+        if (!db_ex("INSERT INTO nq_sim_orders (action,note) VALUES ('" + side + "','" + note + "')"))
+            return "{\"ok\":false,\"error\":\"下单写入失败\"}";   // 写失败
+        return "{\"ok\":true,\"queued\":\"" + side + "\"}";       // 已排队
+    }
+    /* —— 状态查询 —— */
+    bool ok = false;                             // db_scalar 出参
+    std::string pxS = db_scalar("SELECT IFNULL(c,0) FROM kline_nq_1m ORDER BY candle_time DESC LIMIT 1", ok);   // 最新 1m 收盘
+    double px = pxS.empty() ? 0 : atof(pxS.c_str());          // 最新价
+    double qty = 0, avg = 0, addpx = 0, upl = 0;              // 持仓字段
+    int adds = 0;                                             // 加仓次数
+    RowSet pr = db_q("SELECT qty,avg_px,last_add_px,adds FROM nq_sim_pos WHERE id=1");   // 持仓态
+    if (pr.ok && !pr.rows.empty() && pr.rows[0].size() >= 4) {   // 有持仓行
+        qty = atof(pr.rows[0][0].c_str()); avg = atof(pr.rows[0][1].c_str());   // 数量/均价
+        addpx = atof(pr.rows[0][2].c_str()); adds = atoi(pr.rows[0][3].c_str());   // 上次加仓价/次数
+        if (qty > 0 && px > 0) upl = (px - avg) * qty;        // 浮盈(点数×数量)
+    }
+    RowSet st = db_q("SELECT COUNT(*),IFNULL(SUM(profit),0),IFNULL(SUM(profit>0),0),IFNULL(MAX(profit),0),IFNULL(MIN(profit),0)"
+                     " FROM nq_sim_trades WHERE kind='close'");   // 平仓统计(已实现盈亏唯一口径)
+    long long ncl = 0, nwin = 0;                              // 平仓笔数/盈利笔数
+    double pnl = 0, pmax = 0, pmin = 0;                        // 合计盈亏/最大赢/最大亏
+    if (st.ok && !st.rows.empty() && st.rows[0].size() >= 5) {   // 有统计行
+        ncl = atoll(st.rows[0][0].c_str()); pnl = atof(st.rows[0][1].c_str());   // 笔数/总盈亏
+        nwin = atoll(st.rows[0][2].c_str());                     // 盈利笔数
+        pmax = atof(st.rows[0][3].c_str()); pmin = atof(st.rows[0][4].c_str());  // 极值
+    }
+    RowSet td = db_q("SELECT id,DATE_FORMAT(open_time,'%m-%d %H:%i'),kind,side,qty,open_px,IFNULL(close_px,0),profit,reason,status,"
+                     "UNIX_TIMESTAMP(open_time)*1000,IFNULL(UNIX_TIMESTAMP(close_time),0)*1000"
+                     " FROM nq_sim_trades ORDER BY id DESC LIMIT 60");   // 最近 60 条台账(末两列=开/平 epoch ms, 供图表打标)
+    std::string tr = "[";                                     // 流水 JSON
+    bool first = true;                                        // 逗号控制
+    if (td.ok) for (auto& r : td.rows) {                      // 逐条
+        if (r.size() < 12) continue;                          // 列保护
+        if (!first) tr += ",";                                // 补逗号
+        first = false;                                        // 置位
+        tr += "{\"id\":" + r[0] + ",\"t\":\"" + r[1] + "\",\"kind\":\"" + r[2] + "\",\"qty\":" + r[4] +
+              ",\"opx\":" + r[5] + ",\"cpx\":" + r[6] + ",\"pf\":" + r[7] + ",\"rs\":\"" + jesc(r[8]) +
+              "\",\"st\":\"" + r[9] + "\",\"et\":" + r[10] + ",\"ct\":" + r[11] + "}";   // 组装(含时间戳)
+    }
+    tr += "]";                                                // 收尾
+    RowSet od = db_q("SELECT id,action,DATE_FORMAT(ts,'%H:%i:%s') FROM nq_sim_orders WHERE status='PENDING' ORDER BY id ASC LIMIT 20");   // 挂单
+    std::string ord = "[";                                    // 挂单 JSON
+    first = true;                                             // 重置逗号控制
+    if (od.ok) for (auto& r : od.rows) {                      // 逐条
+        if (r.size() < 3) continue;                           // 列保护
+        if (!first) ord += ",";                               // 补逗号
+        first = false;                                        // 置位
+        ord += "{\"id\":" + r[0] + ",\"act\":\"" + jesc(r[1]) + "\",\"t\":\"" + r[2] + "\"}";   // 组装
+    }
+    ord += "]";                                               // 收尾
+    char head[640];                                           // 响应头缓冲
+    snprintf(head, sizeof(head),
+        "{\"ok\":true,\"px\":%.2f,\"pos\":{\"qty\":%.6f,\"avg\":%.2f,\"addpx\":%.2f,\"adds\":%d,\"upl\":%.2f},"
+        "\"stat\":{\"ncl\":%lld,\"nwin\":%lld,\"pnl\":%.2f,\"pmax\":%.2f,\"pmin\":%.2f},"
+        "\"lev\":10,\"usd\":2.0,\"addUsd\":1.0,\"tp\":0.2,\"addDip\":0.1,\"cool\":30,\"maxAdds\":10,",
+        px, qty, avg, addpx, adds, upl, ncl, nwin, pnl, pmax, pmin);   // 头段(参数与引擎常量同口径, 供前端图例)
+    return std::string(head) + "\"trades\":" + tr + ",\"orders\":" + ord + "}";   // 完整响应
+}

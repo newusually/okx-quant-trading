@@ -104,3 +104,10 @@ CREATE TABLE IF NOT EXISTS bt_reports (
   top10_json LONGTEXT COMMENT '前十详细JSON(含曲线/明细/评语/感言)',
   KEY idx_run (run_ts)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI模拟交易员回测报告(每小时一场)';
+nq_sim_orders	CREATE TABLE `nq_sim_orders` (\n  `id` int(11) NOT NULL AUTO_INCREMENT,\n  `ts` datetime DEFAULT current_timestamp(),\n  `action` varchar(8) NOT NULL,\n  `note` varchar(120) DEFAULT '',\n  `status` varchar(8) DEFAULT 'PENDING',\n  `filled_px` double DEFAULT 0,\n  `filled_ts` datetime DEFAULT NULL,\n  PRIMARY KEY (`id`)\n) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+
+
+nq_sim_trades	CREATE TABLE `nq_sim_trades` (\n  `id` int(11) NOT NULL AUTO_INCREMENT,\n  `open_time` datetime DEFAULT NULL,\n  `close_time` datetime DEFAULT NULL,\n  `kind` varchar(8) NOT NULL,\n  `side` varchar(4) DEFAULT 'long',\n  `qty` double DEFAULT NULL,\n  `open_px` double DEFAULT NULL,\n  `close_px` double DEFAULT NULL,\n  `profit` double DEFAULT 0,\n  `reason` varchar(120) DEFAULT '',\n  `status` varchar(8) DEFAULT 'OPEN',\n  PRIMARY KEY (`id`)\n) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+
+
+nq_sim_pos	CREATE TABLE `nq_sim_pos` (\n  `id` int(11) NOT NULL,\n  `qty` double DEFAULT 0,\n  `avg_px` double DEFAULT 0,\n  `last_add_px` double DEFAULT 0,\n  `adds` int(11) DEFAULT 0,\n  `last_add_ts` bigint(20) DEFAULT 0,\n  `updated` datetime DEFAULT current_timestamp(),\n  PRIMARY KEY (`id`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
