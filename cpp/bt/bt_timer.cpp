@@ -24,6 +24,7 @@
 
 // ---------------- 常量配置 ----------------
 static const char* LAMA_EXE  = "E:\\finally-main\\ai\\llama\\bin\\llama-cli.exe";      // llama-cli 可执行文件
+static const char* LCP_EXE  = "E:\\finally-main\\ai\\llama\\bin\\llama-completion.exe";  // 纯补全模式(无交互回显截断问题)
 static const char* LAMA_MODEL= "E:\\finally-main\\ai\\llama\\qwen2.5-0.5b-instruct-q4_k_m.gguf"; // 千问 0.5B 模型
 static const char* LOG_PATH  = "E:\\datas\\log\\bttimer.txt";                          // 本组件日志文件
 static const int   STEPS     = 2880;          // 回测窗口步数: 30天 × 96根/天 (15m)
@@ -187,37 +188,104 @@ static void llm_personas(std::vector<std::string>& names, std::vector<int>& temp
     logline("LLM 生成人格 " + std::to_string(names.size()) + "/100");
 }
 
-// ---------------- LLM: 给前十生成评语(按名字对齐解析, 不再产感言) ----------------
+// ---------------- LLM 深度感言: 逐人单独提问(每人真问大模型, 结构化四段+评语) ----------------
+static std::string trim2(const std::string& s) {
+    size_t a = s.find_first_not_of(" \t\r\n");
+    if (a == std::string::npos) return "";
+    size_t b = s.find_last_not_of(" \t\r\n");
+    return s.substr(a, b - a + 1);
+}
 static void llm_speeches(const std::vector<Spec>& sp, const std::vector<int>& topIdx,
-                         const std::vector<Res>& res, std::vector<std::string>& cmt) {
-    cmt.assign(topIdx.size(), "");                        // 输出容器(空=走模板兜底)
+                         const std::vector<Res>& res, const std::vector<PC>& mkt,
+                         std::vector<std::string>& cmt, std::vector<std::string>& spc) {
+    // ---- 市场概要(全市场聚合, 供感言结合行情分析) ----
+    double sumR = 0; int nR = 0, upN = 0;      // 最后一根15m涨幅合计/样本数/上涨家数
+    std::vector<std::pair<double, std::string>> allR;   // (涨幅, 合约) 全市场
+    for (auto& m : mkt) {
+        int n = (int)m.c.size();
+        if (n < 2) continue;                   // 至少2根
+        int i = n - 1;                         // 最后一根(窗口末根, 已对齐)
+        if (m.o[i] <= 0 || m.c[i-1] <= 0) continue;
+        double r = (m.c[i] - m.o[i]) / m.o[i] * 100.0;   // 末根15m涨幅
+        sumR += r; nR++;
+        if (r > 0) upN++;
+        allR.push_back({r, m.inst});
+    }
+    char mktBg[320] = "";                      // 概要文案
+    if (nR > 0) {
+        std::sort(allR.begin(), allR.end(), [](const std::pair<double, std::string>& a, const std::pair<double, std::string>& b) { return a.first > b.first; });
+        std::string top3;
+        for (int i = 0; i < 3 && i < (int)allR.size(); i++)
+            top3 += (i ? "、" : "") + allR[i].second.substr(0, allR[i].second.find("-USDT")) + "+" + jnum(allR[i].first) + "%";
+        std::string bot1 = allR.back().second.substr(0, allR.back().second.find("-USDT"));
+        snprintf(mktBg, sizeof(mktBg),
+            "当前市场概要: 全市场%d个合约, 最后一根15m平均涨幅%+.2f%%, 上涨占比%.0f%%; 领涨: %s; 领跌: %s%+.2f%%。\n",
+            nR, sumR / nR, 100.0 * upN / nR, top3.c_str(), bot1.c_str(), allR.back().first);
+    }
+    cmt.assign(topIdx.size(), ""); spc.assign(topIdx.size(), "");   // 空=走模板兜底
     const char* TMPF = "E:\\datas\\tmp\\bt_prompt2.txt";
-    FILE* f = fopen(TMPF, "wb"); if (!f) return;
-    fprintf(f, "你是加密货币模拟交易大赛评委。下面是前十名成绩, 给每人写一行, 格式严格为: 名字|评语(20字内)\n");
-    for (size_t i = 0; i < topIdx.size(); i++) {    // 成绩单(供评委参考)
-        const Spec& s = sp[topIdx[i]]; const Res& r = res[topIdx[i]];
-        fprintf(f, "%zu.%s %s%s %.1f%% 胜率%.0f%%\n", i+1, s.name.c_str(), s.archN.c_str(),
-                s.dir==1?"做多":s.dir==-1?"做空":"自适应", (r.eq/1000.0-1)*100.0, r.ntr?100.0*r.win/r.ntr:0);
+    for (size_t k = 0; k < topIdx.size(); k++) {                    // 每人一次独立调用(上下文干净, 0.5B 才切题)
+        const Spec& s = sp[topIdx[k]]; const Res& r = res[topIdx[k]];
+        double ret = (r.eq / 1000.0 - 1) * 100.0;
+        double winr = r.ntr ? 100.0 * r.win / r.ntr : 0.0;
+        char slb[32]; snprintf(slb, sizeof(slb), "止损%.1f%%", s.sl * 100);
+        std::string slTxt = s.sl > 0 ? std::string(slb) : std::string("不设止损");
+        FILE* f = fopen(TMPF, "wb"); if (!f) return;
+        fprintf(f,
+            "%s"
+            "你是加密货币模拟交易大赛的获奖交易员「%s」。本场成绩: 方法「%s」, %s, 性格「%s」, 仓位%.0f%%, 止盈%.1f%%, %s, %s。"
+            "战绩: %d笔交易, 胜率%.0f%%, 最大回撤%.1f%%, 手续费%.1fU, 强平%d次, 期末权益%.0fU(收益%+.1f%%)。本场排名第%d名。\n"
+            "请以第一人称写获奖感言, 必须包含以下四部分, 每部分3-5句, 用换行分段:\n"
+            "一、方法复盘: 你的「%s」为什么适合这轮行情, 入场信号抓住了什么。\n"
+            "二、风控哲学: %d倍杠杆/%s/仓位怎么设计, 为什么这样能活下来。\n"
+            "三、数据剖析: %d笔、%.0f%%胜率、%.1f%%回撤分别说明什么, 哪里做得好哪里要改。\n"
+            "四、感悟与寄语: 结合性格「%s」谈这场的心理变化, 给其他交易员一句忠告。\n"
+            "最后一行单独写: 评语: <20字内的自我点评>\n"
+            "直接写正文, 不要重复题目, 至少400字。\n",
+            mktBg,
+            s.name.c_str(), s.archN.c_str(), s.dir == 1 ? "做多" : s.dir == -1 ? "做空" : "多空自适应",
+            s.temper.c_str(), s.size * 100, s.tp * 100, slTxt.c_str(),
+            s.pyramid ? "顺势金字塔加仓(赚了才加)" : "逆势跌档补仓(越跌越买)",
+            r.ntr, winr, r.dd * 100, r.fee, r.liqs, r.eq, ret, (int)k + 1,
+            s.archN.c_str(), s.lev, slTxt.c_str(), r.ntr, winr, r.dd * 100, s.temper.c_str());
+        fclose(f);
+        char cmd[1024];
+        snprintf(cmd, sizeof(cmd),
+            "\"%s\" -m \"%s\" -no-cnv -c 4096 -n 1300 -t 6 --temp 1.0 --repeat-penalty 1.15 -f \"%s\"",
+            LCP_EXE, LAMA_MODEL, TMPF);
+        std::string out;
+        if (!run_capture(cmd, 300000, out)) { logline("LLM 感言 #" + std::to_string(k + 1) + " 失败 → 兜底"); continue; }
+        // llama-completion -no-cnv: 输出=完整题目回显+正文(无banner无提示符), 用题目末锚切出正文
+        size_t a = out.find("至少400字");                   // 题目最后一行锚(回显完整, find 首个即可)
+        if (a != std::string::npos) {
+            out = out.substr(a + strlen("至少400字"));
+            if (out.compare(0, 3, "ã") == 0) out = out.substr(3);   // 去掉锚后紧跟的'。'(题目句尾)
+        } else {
+            logline("LLM 感言 #" + std::to_string(k + 1) + " 回显异常 → 兜底"); continue;
+        }
+        std::string body; int lines = 0;
+        size_t pos = 0;
+        while (pos < out.size()) {                          // 逐行清洗: 去横幅/空行/题目残留, 抓评语行
+            size_t e = out.find('\n', pos); if (e == std::string::npos) e = out.size();
+            std::string ln = trim2(out.substr(pos, e - pos)); pos = e + 1;
+            if (ln.empty() || ln.size() < 4) continue;
+            if (ln.find("Loading") != std::string::npos || ln.find("Exiting") != std::string::npos ||
+                ln.find("/exit") != std::string::npos || ln.find("llama") != std::string::npos ||
+                ln.find("build") != std::string::npos || ln.find("model") == 0 ||
+                ln.find('<') != std::string::npos || ln.find("题目") != std::string::npos) continue;
+            size_t cy = ln.find("评语");
+            if (cy != std::string::npos && cmt[k].empty()) {  // 评语行: 取冒号/：后内容
+                size_t c1 = ln.find(':'), c2 = ln.find("：");
+                size_t c = (c1 != std::string::npos && (c2 == std::string::npos || c1 < c2)) ? c1 : c2;
+                if (c != std::string::npos) cmt[k] = trim2(ln.substr(c + 1));
+                continue;
+            }
+            body += ln + "\n"; lines++;
+        }
+        if (lines >= 4) spc[k] = body.size() > 6000 ? body.substr(0, 6000) : body;   // 至少4行才算有效(超长截断防复读机)
+        logline("LLM 感言 #" + std::to_string(k + 1) + " " + std::to_string(spc[k].size()) + "B/" +
+                std::to_string(lines) + "行" + (cmt[k].empty() ? "" : " 评语✓"));
     }
-    fprintf(f, "只输出10行, 语气生动:\n"); fclose(f);
-    char cmd[1024];
-    snprintf(cmd, sizeof(cmd),
-        "\"%s\" -m \"%s\" -st -c 2048 -n 1200 -t 4 --temp 1.1 -f \"%s\"",
-        LAMA_EXE, LAMA_MODEL, TMPF);
-    std::string out;
-    if (!run_capture(cmd, 240000, out)) { logline("LLM 评语生成失败 → 模板兜底"); return; }
-    size_t pos = 0; int got = 0;
-    while (pos < out.size() && got < (int)topIdx.size()) {   // 逐行解析: 名字|评语 (按名字对齐, 杜绝错位)
-        size_t e = out.find('\n', pos); if (e == std::string::npos) e = out.size();
-        std::string line = out.substr(pos, e - pos); pos = e + 1;
-        size_t b1 = line.find('|'); if (b1 == std::string::npos) continue;
-        std::string nm = clean_name(line.substr(0, b1));
-        std::string cm = clean_name(line.substr(b1 + 1));
-        if (nm.empty() || cm.empty()) continue;
-        for (size_t k = 0; k < topIdx.size(); k++)       // 名字对上谁就评谁
-            if (cmt[k].empty() && sp[topIdx[k]].name.find(nm) != std::string::npos) { cmt[k] = cm; got++; break; }
-    }
-    logline("LLM 评语 " + std::to_string(got) + "/10");
 }
 
 // ---------------- 大感言: 数据驱动生成 ≥500字/人(保证必存在, 六段式多分析多感悟) ----------------
@@ -806,7 +874,7 @@ static Res sim_one(const Spec& s, const std::vector<PC>& mkt, const std::vector<
 }
 
 // ---------------- 报告 JSON 生成 + 入库 ----------------
-static void write_report(const std::vector<Spec>& sp, std::vector<Res>& res, int nc, long long t0, long long t1) {
+static void write_report(const std::vector<Spec>& sp, std::vector<Res>& res, const std::vector<PC>& mkt, int nc, long long t0, long long t1) {
     // 汇总总成交笔数
     int ntr = 0; for (const Res& r : res) ntr += r.ntr;
     // 排行: 按期末权益降序
@@ -838,16 +906,17 @@ static void write_report(const std::vector<Spec>& sp, std::vector<Res>& res, int
     }
     sj += "]}";
     // ---- top10_json: 前十详细(评语/感言/成交明细) ----
-    std::vector<std::string> cmt;
+    std::vector<std::string> cmt, spc;
     std::vector<int> topIdx(order.begin(), order.begin() + std::min<size_t>(10, order.size()));
-    llm_speeches(sp, topIdx, res, cmt);
+    llm_speeches(sp, topIdx, res, mkt, cmt, spc);   // 逐人真问大模型(深度四段感言+评语)
     static const char* CMT_TPL[8] = {"方法纪律在线，盈亏比合理","风格激进，靠趋势吃饭","出手太频，被手续费蚕食","亏后报复开仓是最大漏洞","节奏混乱，需要系统化","稳字当头，牺牲弹性换生存","赌性坚强，命运大起大落","纪律执行满分，值得实盘借鉴"};
     std::string tj = "{\"top\":[";
     for (size_t k = 0; k < topIdx.size(); k++) {
         int i = topIdx[k]; const Spec& s = sp[i]; const Res& r = res[i];
         if (k) tj += ",";
-        std::string cm = cmt[k].empty() ? std::string(CMT_TPL[s.arch % 8]) : cmt[k];     // 评语(LLM 兜底模板)
-        std::string sp2 = big_speech(s, r, (int)k + 1);                                  // 大感言(数据驱动 ≥500字, 必存在)
+        std::string cm = cmt[k].empty() ? std::string(CMT_TPL[s.arch % 8]) : cmt[k];     // 评语(LLM 优先, 兜底模板)
+        std::string sp2 = spc[k];                                                        // 感言: LLM 正文优先
+        if (sp2.size() < 1500) sp2 += "\n" + big_speech(s, r, (int)k + 1);               // 不足500字 → 模板大感言补足
         tj += "{\"rk\":" + std::to_string(k+1) + ",\"nm\":\"" + jesc(s.name) + "\",\"ar\":\"" + jesc(s.archN) +
               "\",\"dr\":" + std::to_string(s.dir) + ",\"tp\":\"" + jesc(s.temper) +
               "\",\"sz\":" + jnum(s.size) + ",\"tpv\":" + jnum(s.tp) + ",\"slv\":" + jnum(s.sl) +
@@ -905,7 +974,7 @@ static void run_once() {
     logline("事件预计算完成");                   // 分段留痕(定位崩溃段)
     std::vector<Res> res(sp.size());            // ⑥ 逐人模拟
     for (size_t i = 0; i < sp.size(); i++) res[i] = sim_one(sp[i], mkt, ev, t0);
-    write_report(sp, res, (int)mkt.size(), t0, t1);                   // ⑦ 报告入库
+    write_report(sp, res, mkt, (int)mkt.size(), t0, t1);                   // ⑦ 报告入库
     logline("===== 本轮结束 =====");
 }
 
